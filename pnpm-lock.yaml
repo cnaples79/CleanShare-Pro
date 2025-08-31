@@ -29,12 +29,18 @@ importers:
       '@capacitor/ios':
         specifier: ^5.0.5
         version: 5.7.8(@capacitor/core@5.7.8)
+      '@cleanshare/core-detect':
+        specifier: workspace:*
+        version: link:../../packages/core-detect
       '@cleanshare/native-bridge':
         specifier: workspace:*
         version: link:../../packages/native-bridge
       '@cleanshare/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@cleanshare/wasm':
+        specifier: workspace:*
+        version: link:../../packages/wasm
 
   packages/core-detect:
     dependencies:
@@ -69,6 +75,12 @@ importers:
       '@capacitor/core':
         specifier: ^5.0.5
         version: 5.7.8
+      '@cleanshare/wasm':
+        specifier: workspace:*
+        version: link:../wasm
+      jsqr:
+        specifier: ^1.4.0
+        version: 1.4.0
     devDependencies:
       typescript:
         specifier: ^5.2.2
@@ -124,7 +136,20 @@ importers:
         version: 5.9.2
 
   packages/wasm:
+    dependencies:
+      comlink:
+        specifier: ^4.4.2
+        version: 4.4.2
+      pdf-lib:
+        specifier: ^1.17.1
+        version: 1.17.1
+      tesseract.js:
+        specifier: ^4.1.4
+        version: 4.1.4
     devDependencies:
+      '@types/node':
+        specifier: ^24.3.0
+        version: 24.3.0
       typescript:
         specifier: ^5.2.2
         version: 5.9.2
@@ -779,6 +804,9 @@ packages:
   '@types/node@20.19.11':
     resolution: {integrity: sha512-uug3FEEGv0r+jrecvUUpbY8lLisvIjg6AAic6a2bSP5OEOLeJsDSnvhCDov7ipFFMXS3orMpzlmi0ZcuGkBbow==}
 
+  '@types/node@24.3.0':
+    resolution: {integrity: sha512-aPTXCrfwnDLj4VvXrm+UUCQjNEvJgNA8s5F1cvwQU+3KNltTOkBm1j30uNLyqqPNe7gE3KFzImYoZEfLhp4Yow==}
+
   '@types/prop-types@15.7.15':
     resolution: {integrity: sha512-F6bEyamV9jKGAFBEmlQnesRPGOQqS2+Uwi0Em15xenOxHaf2hv6L8YCVn3rPdPJOiJfPiCnLIRyvwVaqMY3MIw==}
 
@@ -857,6 +885,9 @@ packages:
   color-support@1.1.3:
     resolution: {integrity: sha512-qiBjkpbMLO/HL68y+lh4q0/O1MZFj2RX6X/KmMa3+gJD3z+WwI1ZzDHysvqHGS3mP6mznPckpXmw1nI9cJjyRg==}
     hasBin: true
+
+  comlink@4.4.2:
+    resolution: {integrity: sha512-OxGdvBmJuNKSCMO4NTl1L47VRp6xn2wG4F/2hYzB6tiCb709otOxtEYCSvK80PtjODfXXZu8ds+Nw5kVCjqd2g==}
 
   concat-map@0.0.1:
     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
@@ -1276,6 +1307,9 @@ packages:
 
   undici-types@6.21.0:
     resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
+
+  undici-types@7.10.0:
+    resolution: {integrity: sha512-t5Fy/nfn+14LuOc2KNYg75vZqClpAiqscVvMygNnlsHBFpSXdJaYtXMcdNLpl/Qvc3P2cB3s6lOV51nqsFq4ag==}
 
   unicode-canonical-property-names-ecmascript@2.0.1:
     resolution: {integrity: sha512-dA8WbNeb2a6oQzAQ55YlT5vQAWGV9WXOsi3SskE3bcCdM0P4SDd+24zS/OCacdRq5BkdsRj9q3Pg6YyQoxIGqg==}
@@ -2149,6 +2183,10 @@ snapshots:
     dependencies:
       undici-types: 6.21.0
 
+  '@types/node@24.3.0':
+    dependencies:
+      undici-types: 7.10.0
+
   '@types/prop-types@15.7.15': {}
 
   '@types/react@18.3.24':
@@ -2245,6 +2283,8 @@ snapshots:
 
   color-support@1.1.3:
     optional: true
+
+  comlink@4.4.2: {}
 
   concat-map@0.0.1:
     optional: true
@@ -2683,6 +2723,8 @@ snapshots:
   typescript@5.9.2: {}
 
   undici-types@6.21.0: {}
+
+  undici-types@7.10.0: {}
 
   unicode-canonical-property-names-ecmascript@2.0.1: {}
 

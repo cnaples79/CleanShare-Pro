@@ -9,7 +9,9 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@capacitor/core": "^5.0.5"
+    "@capacitor/core": "^5.0.5",
+    "@cleanshare/wasm": "workspace:*",
+    "jsqr": "^1.4.0"
   },
   "devDependencies": {
     "typescript": "^5.2.2"

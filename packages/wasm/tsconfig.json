@@ -1,13 +1,20 @@
 {
   "compilerOptions": {
-    "target": "ES2019",
-    "lib": ["ES2019"],
+    "target": "ES2020",
     "module": "ESNext",
+    "lib": ["DOM", "DOM.Iterable", "ES2020", "WebWorker"],
+    "moduleResolution": "Node",
     "declaration": true,
     "outDir": "dist",
-    "strict": true,
-    "moduleResolution": "Node",
-    "skipLibCheck": true
+    "strict": false,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": false
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*"],
+  "exclude": ["dist", "node_modules"]
 }

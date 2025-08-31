@@ -41,4 +41,7 @@ export const ShareIn = registerPlugin<ShareInPlugin>('ShareIn');
 export const Vision = registerPlugin<VisionPlugin>('Vision');
 export const PdfTools = registerPlugin<PdfToolsPlugin>('PdfTools');
 
+// Export web implementations for manual registration if needed
+export * from './web';
+
 export default { ShareIn, Vision, PdfTools };

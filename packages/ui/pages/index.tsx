@@ -1,5 +1,4 @@
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-nocheck
+// Main CleanShare Pro UI component
 import React, { useState, useEffect } from 'react';
 import type {
   Detection,

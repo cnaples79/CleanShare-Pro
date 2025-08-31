@@ -11,6 +11,8 @@
     "@capacitor/android": "^5.0.5",
     "@capacitor/ios": "^5.0.5",
     "@cleanshare/ui": "workspace:*",
-    "@cleanshare/native-bridge": "workspace:*"
+    "@cleanshare/native-bridge": "workspace:*",
+    "@cleanshare/core-detect": "workspace:*",
+    "@cleanshare/wasm": "workspace:*"
   }
 }

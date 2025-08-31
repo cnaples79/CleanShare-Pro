@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <title>CleanShare Pro</title>
+  <meta name="viewport" content="viewport-fit=cover, width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="msapplication-tap-highlight" content="no">
+
+  <!-- Capacitor -->
+  <script type="module" src="/capacitor.js"></script>
+  <script type="module" src="/main.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: #f5f5f5;
+    }
+    
+    .loading-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      text-align: center;
+    }
+    
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #007bff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .app-container {
+      min-height: 100vh;
+    }
+    
+    .file-drop-zone {
+      border: 2px dashed #ccc;
+      border-radius: 10px;
+      width: 90%;
+      max-width: 400px;
+      height: 200px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 20px auto;
+      cursor: pointer;
+      transition: border-color 0.3s ease;
+    }
+    
+    .file-drop-zone:hover {
+      border-color: #007bff;
+      background-color: rgba(0, 123, 255, 0.05);
+    }
+    
+    .file-drop-zone.dragover {
+      border-color: #007bff;
+      background-color: rgba(0, 123, 255, 0.1);
+    }
+    
+    .file-input {
+      display: none;
+    }
+    
+    .btn {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin: 10px;
+    }
+    
+    .btn:hover {
+      background-color: #0056b3;
+    }
+  </style>
+</head>
+<body>
+  <div id="app" class="app-container">
+    <div class="loading-container">
+      <div class="loading-spinner"></div>
+      <h2>CleanShare Pro</h2>
+      <p>Loading privacy protection tools...</p>
+    </div>
+  </div>
+
+  <script>
+    // Basic mobile app initialization
+    window.addEventListener('DOMContentLoaded', async () => {
+      // Wait for Capacitor to load
+      await new Promise(resolve => {
+        if (window.Capacitor) {
+          resolve();
+        } else {
+          document.addEventListener('deviceready', resolve);
+        }
+      });
+      
+      // Initialize the main app
+      initializeApp();
+    });
+    
+    function initializeApp() {
+      const appDiv = document.getElementById('app');
+      
+      appDiv.innerHTML = `
+        <div style="padding: 20px;">
+          <h1>CleanShare Pro</h1>
+          <p>Privacy-focused document sanitization</p>
+          
+          <div class="file-drop-zone" onclick="selectFile()">
+            <div>
+              <h3>📄 Select Files</h3>
+              <p>Tap to select images or PDFs</p>
+            </div>
+          </div>
+          
+          <input type="file" id="fileInput" class="file-input" accept="image/*,.pdf" multiple onchange="handleFiles(this.files)">
+          
+          <div style="margin-top: 20px;">
+            <button class="btn" onclick="testCapacitor()">Test Native Features</button>
+          </div>
+          
+          <div id="status" style="margin-top: 20px; padding: 10px; background: #f8f9fa; border-radius: 5px;">
+            Ready to process files
+          </div>
+        </div>
+      `;
+    }
+    
+    function selectFile() {
+      document.getElementById('fileInput').click();
+    }
+    
+    async function handleFiles(files) {
+      const status = document.getElementById('status');
+      status.innerHTML = `Processing ${files.length} file(s)...`;
+      
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        status.innerHTML += `<br>• ${file.name} (${file.type})`;
+        
+        try {
+          // Process file using CleanShare Pro API
+          const result = await window.CleanSharePro.processFile(file);
+          
+          if (result.success) {
+            status.innerHTML += `<br>  ✓ Found ${result.detections.length} sensitive items`;
+            
+            // Show detections
+            result.detections.forEach(detection => {
+              status.innerHTML += `<br>    - ${detection.kind}: ${detection.text} (${Math.round(detection.confidence * 100)}% confidence)`;
+            });
+            
+            // Simulate redaction
+            const redactionResult = await window.CleanSharePro.applyRedactions(file, 
+              result.detections.map(d => ({ id: d.id, action: 'REDACT', style: 'BOX' })),
+              { style: 'BOX' }
+            );
+            
+            if (redactionResult.success) {
+              status.innerHTML += `<br>  ✓ Sanitized as: ${redactionResult.filename}`;
+            }
+          } else {
+            status.innerHTML += `<br>  ✗ Error: ${result.error}`;
+          }
+        } catch (error) {
+          status.innerHTML += `<br>  ✗ Processing failed: ${error.message}`;
+        }
+      }
+      
+      status.innerHTML += '<br><br><strong>Processing complete!</strong>';
+    }
+    
+    async function testCapacitor() {
+      const status = document.getElementById('status');
+      
+      try {
+        // Test if we're in a Capacitor environment
+        if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+          status.innerHTML = `
+            <strong>Native Platform Detected!</strong><br>
+            Platform: ${window.Capacitor.getPlatform()}<br>
+            Testing native plugins...
+          `;
+          
+          // Test ShareIn plugin
+          try {
+            const { ShareIn } = await import('@cleanshare/native-bridge');
+            const result = await ShareIn.getSharedFiles();
+            status.innerHTML += `<br>ShareIn: ${result.files.length} shared files`;
+          } catch (e) {
+            status.innerHTML += `<br>ShareIn: Not available (${e.message})`;
+          }
+          
+        } else {
+          status.innerHTML = `
+            <strong>Web Environment Detected</strong><br>
+            Running with web fallbacks...<br>
+            Native features will use JavaScript implementations.
+          `;
+        }
+      } catch (error) {
+        status.innerHTML = `Error testing Capacitor: ${error.message}`;
+      }
+    }
+  </script>
+</body>
+</html>
