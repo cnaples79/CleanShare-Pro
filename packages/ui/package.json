@@ -8,16 +8,20 @@
     "start": "next start"
   },
   "dependencies": {
-    "next": "14.1.0",
-    "react": "18.2.0",
-    "react-dom": "18.2.0",
-    "uuid": "^9.0.0",
-    "pdfjs-dist": "^3.1.81",
     "@cleanshare/core-detect": "workspace:*",
     "jsqr": "^1.4.0",
-    "jszip": "^3.10.1"
+    "jszip": "^3.10.1",
+    "next": "14.1.0",
+    "pdfjs-dist": "^3.1.81",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "uuid": "^9.0.0"
   },
   "devDependencies": {
+    "@babel/core": "^7.28.3",
+    "@babel/preset-env": "^7.28.3",
+    "@babel/preset-react": "^7.27.1",
+    "@babel/preset-typescript": "^7.27.1",
     "@types/node": "^20.3.1",
     "@types/react": "^18.2.15",
     "typescript": "^5.2.2"
