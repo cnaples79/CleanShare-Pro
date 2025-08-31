@@ -12,11 +12,119 @@
   <script type="module" src="/main.js"></script>
 
   <style>
-    body {
+    /* Modern Mobile Design System for CleanShare Pro */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    :root {
+      /* Color System */
+      --color-primary: #2563eb;
+      --color-primary-dark: #1d4ed8;
+      --color-primary-light: #3b82f6;
+      --color-secondary: #10b981;
+      --color-secondary-dark: #059669;
+      --color-accent: #8b5cf6;
+      --color-warning: #f59e0b;
+      --color-error: #ef4444;
+      --color-success: #10b981;
+      
+      /* Neutral Colors */
+      --color-gray-50: #f9fafb;
+      --color-gray-100: #f3f4f6;
+      --color-gray-200: #e5e7eb;
+      --color-gray-300: #d1d5db;
+      --color-gray-400: #9ca3af;
+      --color-gray-500: #6b7280;
+      --color-gray-600: #4b5563;
+      --color-gray-700: #374151;
+      --color-gray-800: #1f2937;
+      --color-gray-900: #111827;
+      
+      /* Background Colors */
+      --bg-primary: #ffffff;
+      --bg-secondary: #f9fafb;
+      --bg-tertiary: #f3f4f6;
+      --bg-dark: #1f2937;
+      
+      /* Text Colors */
+      --text-primary: #111827;
+      --text-secondary: #6b7280;
+      --text-tertiary: #9ca3af;
+      --text-inverse: #ffffff;
+      
+      /* Border Colors */
+      --border-light: #e5e7eb;
+      --border-medium: #d1d5db;
+      --border-dark: #9ca3af;
+      
+      /* Spacing System */
+      --space-xs: 0.25rem;
+      --space-sm: 0.5rem;
+      --space-md: 1rem;
+      --space-lg: 1.5rem;
+      --space-xl: 2rem;
+      --space-2xl: 3rem;
+      --space-3xl: 4rem;
+      
+      /* Typography */
+      --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-size-xs: 0.75rem;
+      --font-size-sm: 0.875rem;
+      --font-size-base: 1rem;
+      --font-size-lg: 1.125rem;
+      --font-size-xl: 1.25rem;
+      --font-size-2xl: 1.5rem;
+      --font-size-3xl: 1.875rem;
+      --font-size-4xl: 2.25rem;
+      
+      /* Shadows */
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+      
+      /* Border Radius */
+      --radius-sm: 0.375rem;
+      --radius-md: 0.5rem;
+      --radius-lg: 0.75rem;
+      --radius-xl: 1rem;
+      --radius-full: 9999px;
+      
+      /* Transitions */
+      --transition-fast: 150ms ease-in-out;
+      --transition-normal: 250ms ease-in-out;
+      --transition-slow: 350ms ease-in-out;
+    }
+
+    /* Reset and Base Styles */
+    * {
+      box-sizing: border-box;
       margin: 0;
       padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-      background: #f5f5f5;
+    }
+
+    html {
+      font-size: 16px;
+      line-height: 1.5;
+    }
+
+    body {
+      font-family: var(--font-family);
+      color: var(--text-primary);
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      margin: 0;
+      padding: 0;
+    }
+
+    .app-container {
+      min-height: 100vh;
+      background: var(--bg-primary);
+      max-width: 480px;
+      margin: 0 auto;
+      box-shadow: var(--shadow-xl);
+      position: relative;
+      overflow-x: hidden;
     }
     
     .loading-container {
@@ -26,14 +134,29 @@
       justify-content: center;
       height: 100vh;
       text-align: center;
+      padding: var(--space-xl);
+      background: var(--bg-primary);
+    }
+
+    .loading-container h2 {
+      font-size: var(--font-size-2xl);
+      font-weight: 700;
+      color: var(--color-primary);
+      margin: var(--space-lg) 0 var(--space-sm) 0;
+    }
+
+    .loading-container p {
+      font-size: var(--font-size-base);
+      color: var(--text-secondary);
+      margin: 0;
     }
     
     .loading-spinner {
-      width: 40px;
-      height: 40px;
-      border: 3px solid #f3f3f3;
-      border-top: 3px solid #007bff;
-      border-radius: 50%;
+      width: 3rem;
+      height: 3rem;
+      border: 3px solid var(--border-light);
+      border-top: 3px solid var(--color-primary);
+      border-radius: var(--radius-full);
       animation: spin 1s linear infinite;
     }
     
@@ -41,51 +164,343 @@
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
-    
-    .app-container {
-      min-height: 100vh;
+
+    /* Header Styles */
+    .mobile-header {
+      background: var(--bg-primary);
+      border-bottom: 1px solid var(--border-light);
+      padding: var(--space-lg) var(--space-lg) var(--space-md) var(--space-lg);
+      text-align: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: var(--shadow-sm);
     }
-    
-    .file-drop-zone {
-      border: 2px dashed #ccc;
-      border-radius: 10px;
-      width: 90%;
-      max-width: 400px;
-      height: 200px;
+
+    .mobile-header h1 {
+      font-size: var(--font-size-2xl);
+      font-weight: 700;
+      color: var(--color-primary);
+      margin: 0;
       display: flex;
       align-items: center;
       justify-content: center;
-      margin: 20px auto;
+      gap: var(--space-sm);
+    }
+
+    .mobile-header h1::before {
+      content: "🔒";
+      font-size: var(--font-size-xl);
+    }
+
+    .mobile-header p {
+      font-size: var(--font-size-sm);
+      color: var(--text-secondary);
+      margin: var(--space-xs) 0 0 0;
+    }
+
+    /* Main Content */
+    .mobile-content {
+      padding: var(--space-lg);
+      min-height: calc(100vh - 120px);
+    }
+
+    /* Card System */
+    .mobile-card {
+      background: var(--bg-primary);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      overflow: hidden;
+      margin-bottom: var(--space-lg);
+      transition: all var(--transition-normal);
+    }
+
+    .mobile-card:hover {
+      box-shadow: var(--shadow-lg);
+      transform: translateY(-1px);
+    }
+
+    .mobile-card-header {
+      padding: var(--space-lg) var(--space-lg) var(--space-md) var(--space-lg);
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    .mobile-card-title {
+      font-size: var(--font-size-lg);
+      font-weight: 600;
+      color: var(--text-primary);
+      margin: 0 0 var(--space-xs) 0;
+    }
+
+    .mobile-card-subtitle {
+      font-size: var(--font-size-sm);
+      color: var(--text-secondary);
+      margin: 0;
+    }
+
+    .mobile-card-body {
+      padding: var(--space-lg);
+    }
+
+    /* File Upload Zone */
+    .file-drop-zone {
+      border: 2px dashed var(--border-medium);
+      border-radius: var(--radius-lg);
+      padding: var(--space-2xl);
+      text-align: center;
+      background: var(--bg-secondary);
+      transition: all var(--transition-normal);
       cursor: pointer;
-      transition: border-color 0.3s ease;
+      position: relative;
+      overflow: hidden;
+      margin-bottom: var(--space-lg);
     }
-    
+
+    .file-drop-zone::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(45deg, transparent 30%, rgba(37, 99, 235, 0.05) 50%, transparent 70%);
+      opacity: 0;
+      transition: opacity var(--transition-normal);
+    }
+
+    .file-drop-zone:active,
     .file-drop-zone:hover {
-      border-color: #007bff;
-      background-color: rgba(0, 123, 255, 0.05);
+      border-color: var(--color-primary);
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.1) 0%, rgba(16, 185, 129, 0.1) 100%);
+      transform: translateY(-2px);
     }
-    
+
+    .file-drop-zone:active::before,
+    .file-drop-zone:hover::before {
+      opacity: 1;
+    }
+
     .file-drop-zone.dragover {
-      border-color: #007bff;
-      background-color: rgba(0, 123, 255, 0.1);
+      border-color: var(--color-secondary);
+      background: rgba(16, 185, 129, 0.1);
+      transform: scale(1.02);
     }
-    
+
+    .file-drop-icon {
+      font-size: var(--font-size-3xl);
+      margin-bottom: var(--space-md);
+      opacity: 0.7;
+    }
+
+    .file-drop-text {
+      font-size: var(--font-size-lg);
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: var(--space-sm);
+    }
+
+    .file-drop-subtext {
+      font-size: var(--font-size-sm);
+      color: var(--text-secondary);
+    }
+
     .file-input {
       display: none;
     }
-    
+
+    /* Button System */
     .btn {
-      background-color: #007bff;
-      color: white;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-xs);
+      padding: var(--space-md) var(--space-xl);
+      font-size: var(--font-size-base);
+      font-weight: 500;
       border: none;
-      padding: 10px 20px;
-      border-radius: 5px;
+      border-radius: var(--radius-md);
       cursor: pointer;
-      margin: 10px;
+      transition: all var(--transition-fast);
+      text-decoration: none;
+      white-space: nowrap;
+      min-height: 3rem;
+      width: 100%;
+      margin: var(--space-sm) 0;
     }
-    
-    .btn:hover {
-      background-color: #0056b3;
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: var(--color-primary);
+      color: var(--text-inverse);
+    }
+
+    .btn-primary:hover:not(:disabled),
+    .btn-primary:active:not(:disabled) {
+      background: var(--color-primary-dark);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .btn-secondary {
+      background: var(--color-secondary);
+      color: var(--text-inverse);
+    }
+
+    .btn-secondary:hover:not(:disabled),
+    .btn-secondary:active:not(:disabled) {
+      background: var(--color-secondary-dark);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--color-primary);
+      border: 2px solid var(--color-primary);
+    }
+
+    .btn-outline:hover:not(:disabled),
+    .btn-outline:active:not(:disabled) {
+      background: var(--color-primary);
+      color: var(--text-inverse);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid var(--border-medium);
+    }
+
+    .btn-ghost:hover:not(:disabled),
+    .btn-ghost:active:not(:disabled) {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+
+    .btn-sm {
+      padding: var(--space-sm) var(--space-lg);
+      font-size: var(--font-size-sm);
+      min-height: 2.5rem;
+    }
+
+    /* Status Display */
+    .status-display {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-md);
+      padding: var(--space-lg);
+      margin: var(--space-lg) 0;
+      font-size: var(--font-size-sm);
+      line-height: 1.6;
+      color: var(--text-primary);
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .status-display strong {
+      color: var(--color-primary);
+      font-weight: 600;
+    }
+
+    /* Platform Info */
+    .platform-info {
+      background: var(--bg-tertiary);
+      border-radius: var(--radius-sm);
+      padding: var(--space-md);
+      margin-top: var(--space-lg);
+      font-size: var(--font-size-xs);
+      color: var(--text-secondary);
+      text-align: center;
+      border: 1px solid var(--border-light);
+    }
+
+    /* Alert System */
+    .alert {
+      padding: var(--space-md);
+      border-radius: var(--radius-md);
+      margin-bottom: var(--space-lg);
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-sm);
+    }
+
+    .alert-success {
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      color: var(--color-secondary);
+    }
+
+    .alert-info {
+      background: rgba(37, 99, 235, 0.1);
+      border: 1px solid rgba(37, 99, 235, 0.2);
+      color: var(--color-primary);
+    }
+
+    .alert-warning {
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.2);
+      color: var(--color-warning);
+    }
+
+    .alert-error {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      color: var(--color-error);
+    }
+
+    /* Loading States */
+    .processing-spinner {
+      width: 1.5rem;
+      height: 1.5rem;
+      border: 2px solid var(--border-light);
+      border-top: 2px solid var(--color-primary);
+      border-radius: var(--radius-full);
+      animation: spin 1s linear infinite;
+    }
+
+    /* Touch-friendly improvements for mobile */
+    @media (max-width: 480px) {
+      .mobile-content {
+        padding: var(--space-md);
+      }
+
+      .file-drop-zone {
+        padding: var(--space-xl);
+      }
+
+      .btn {
+        min-height: 3.5rem;
+        font-size: var(--font-size-lg);
+      }
+
+      .mobile-card-body {
+        padding: var(--space-md);
+      }
+    }
+
+    /* Dark mode support */
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-primary: #1f2937;
+        --bg-secondary: #111827;
+        --bg-tertiary: #374151;
+        --text-primary: #f9fafb;
+        --text-secondary: #d1d5db;
+        --text-tertiary: #9ca3af;
+        --border-light: #374151;
+        --border-medium: #4b5563;
+        --border-dark: #6b7280;
+      }
+
+      body {
+        background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
+      }
     }
   </style>
 </head>
@@ -153,30 +568,45 @@
       
       try {
         appDiv.innerHTML = `
-          <div style="padding: 20px;">
+          <div class="mobile-header">
             <h1>CleanShare Pro</h1>
             <p>Privacy-focused document sanitization</p>
-            
-            <div class="file-drop-zone" onclick="selectFile()">
-              <div>
-                <h3>📄 Select Files</h3>
-                <p>Tap to select images or PDFs</p>
+          </div>
+          
+          <div class="mobile-content">
+            <div class="mobile-card">
+              <div class="mobile-card-header">
+                <h2 class="mobile-card-title">Upload Files</h2>
+                <p class="mobile-card-subtitle">Select images or PDF documents to sanitize</p>
+              </div>
+              <div class="mobile-card-body">
+                <div class="file-drop-zone" onclick="selectFile()">
+                  <div class="file-drop-icon">📄</div>
+                  <div class="file-drop-text">Select Files</div>
+                  <div class="file-drop-subtext">Tap to select images or PDFs up to 10MB each</div>
+                </div>
+                
+                <input type="file" id="fileInput" class="file-input" accept="image/*,.pdf" multiple onchange="handleFiles(this.files)">
+                
+                <button class="btn btn-outline btn-sm" onclick="testCapacitor()">🧪 Test Native Features</button>
               </div>
             </div>
             
-            <input type="file" id="fileInput" class="file-input" accept="image/*,.pdf" multiple onchange="handleFiles(this.files)">
-            
-            <div style="margin-top: 20px;">
-              <button class="btn" onclick="testCapacitor()">Test Native Features</button>
+            <div class="mobile-card">
+              <div class="mobile-card-header">
+                <h2 class="mobile-card-title">Processing Status</h2>
+                <p class="mobile-card-subtitle">File analysis and sanitization progress</p>
+              </div>
+              <div class="mobile-card-body">
+                <div id="status" class="status-display">
+                  Ready to process files
+                </div>
+              </div>
             </div>
             
-            <div id="status" style="margin-top: 20px; padding: 10px; background: #f8f9fa; border-radius: 5px;">
-              Ready to process files
-            </div>
-            
-            <div style="margin-top: 10px; font-size: 12px; color: #666;">
-              Platform: ${window.Capacitor ? window.Capacitor.getPlatform() : 'web'}<br>
-              CleanShare API: ${window.CleanSharePro ? '✓ Available' : '✗ Not loaded'}
+            <div class="platform-info">
+              <strong>Platform:</strong> ${window.Capacitor ? window.Capacitor.getPlatform() : 'web'}<br>
+              <strong>CleanShare API:</strong> ${window.CleanSharePro ? '✓ Available' : '✗ Not loaded'}
             </div>
           </div>
         `;
@@ -185,10 +615,20 @@
       } catch (error) {
         console.error('Failed to initialize app interface:', error);
         appDiv.innerHTML = `
-          <div style="padding: 20px; text-align: center;">
+          <div class="mobile-header">
             <h1>CleanShare Pro</h1>
-            <p style="color: red;">Initialization error: ${error.message}</p>
-            <button onclick="location.reload()">Retry</button>
+            <p>Initialization Error</p>
+          </div>
+          <div class="mobile-content">
+            <div class="alert alert-error">
+              <div>
+                <strong>Initialization Failed</strong>
+                <p style="margin: 0; margin-top: var(--space-xs);">
+                  ${error.message}
+                </p>
+              </div>
+            </div>
+            <button class="btn btn-primary" onclick="location.reload()">🔄 Retry</button>
           </div>
         `;
       }
@@ -200,74 +640,271 @@
     
     async function handleFiles(files) {
       const status = document.getElementById('status');
-      status.innerHTML = `Processing ${files.length} file(s)...`;
+      
+      if (!files || files.length === 0) {
+        status.innerHTML = `<div class="alert alert-warning">No files selected.</div>`;
+        return;
+      }
+      
+      // Show processing indicator
+      status.innerHTML = `
+        <div style="display: flex; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-md);">
+          <div class="processing-spinner"></div>
+          <strong>Processing ${files.length} file(s)...</strong>
+        </div>
+      `;
+      
+      const results = [];
       
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        status.innerHTML += `<br>• ${file.name} (${file.type})`;
+        const fileSize = (file.size / (1024 * 1024)).toFixed(2);
+        
+        status.innerHTML += `
+          <div style="margin: var(--space-md) 0; padding: var(--space-md); border-left: 3px solid var(--color-primary); background: var(--bg-tertiary);">
+            <strong>📄 ${file.name}</strong><br>
+            <span style="color: var(--text-secondary); font-size: var(--font-size-sm);">
+              ${file.type || 'Unknown type'} • ${fileSize} MB
+            </span>
+          </div>
+        `;
         
         try {
+          // Check if CleanShare Pro API is available
+          if (!window.CleanSharePro) {
+            throw new Error('CleanShare Pro API not loaded');
+          }
+          
           // Process file using CleanShare Pro API
           const result = await window.CleanSharePro.processFile(file);
           
           if (result.success) {
-            status.innerHTML += `<br>  ✓ Found ${result.detections.length} sensitive items`;
+            const detectionsHtml = result.detections.length > 0 
+              ? result.detections.map(detection => 
+                  `<div style="margin: var(--space-xs) 0; padding: var(--space-xs); background: rgba(16, 185, 129, 0.1); border-radius: var(--radius-sm);">
+                     <strong>${detection.kind}:</strong> ${detection.text} 
+                     <span style="color: var(--text-secondary);">(${Math.round(detection.confidence * 100)}%)</span>
+                   </div>`
+                ).join('')
+              : '<div style="color: var(--color-success);">✓ No sensitive information detected</div>';
             
-            // Show detections
-            result.detections.forEach(detection => {
-              status.innerHTML += `<br>    - ${detection.kind}: ${detection.text} (${Math.round(detection.confidence * 100)}% confidence)`;
-            });
+            status.innerHTML += `
+              <div style="margin-left: var(--space-lg);">
+                ✅ <strong>Analysis Complete</strong><br>
+                Found ${result.detections.length} sensitive items:<br>
+                ${detectionsHtml}
+              </div>
+            `;
             
-            // Simulate redaction
-            const redactionResult = await window.CleanSharePro.applyRedactions(file, 
-              result.detections.map(d => ({ id: d.id, action: 'REDACT', style: 'BOX' })),
-              { style: 'BOX' }
-            );
-            
-            if (redactionResult.success) {
-              status.innerHTML += `<br>  ✓ Sanitized as: ${redactionResult.filename}`;
+            // Apply redactions if detections found
+            if (result.detections.length > 0) {
+              const redactionResult = await window.CleanSharePro.applyRedactions(file, 
+                result.detections.map(d => ({ id: d.id, action: 'REDACT', style: 'BOX' })),
+                { style: 'BOX' }
+              );
+              
+              if (redactionResult.success) {
+                // Store the processed file data for download
+                const mimeType = file.type.startsWith('image/') ? file.type : 'application/pdf';
+                processedFiles.set(redactionResult.filename, {
+                  data: redactionResult.data,
+                  mimeType: mimeType,
+                  originalName: file.name
+                });
+                
+                status.innerHTML += `
+                  <div style="margin-left: var(--space-lg); margin-top: var(--space-sm);">
+                    🔒 <strong>Sanitization Complete</strong><br>
+                    <span style="color: var(--text-secondary);">Clean file: ${redactionResult.filename}</span>
+                    <br>
+                    <button class="btn btn-secondary btn-sm" style="margin-top: var(--space-sm); width: auto;" onclick="downloadFile('${redactionResult.filename}', '${file.name}')">
+                      📥 Download Clean File
+                    </button>
+                  </div>
+                `;
+                results.push({ original: file.name, sanitized: redactionResult.filename, detections: result.detections.length });
+              } else {
+                status.innerHTML += `
+                  <div style="margin-left: var(--space-lg); color: var(--color-error);">
+                    ❌ Sanitization failed: ${redactionResult.error || 'Unknown error'}
+                  </div>
+                `;
+              }
+            } else {
+              results.push({ original: file.name, sanitized: null, detections: 0 });
             }
           } else {
-            status.innerHTML += `<br>  ✗ Error: ${result.error}`;
+            status.innerHTML += `
+              <div style="margin-left: var(--space-lg); color: var(--color-error);">
+                ❌ Analysis failed: ${result.error || 'Unknown error'}
+              </div>
+            `;
           }
         } catch (error) {
-          status.innerHTML += `<br>  ✗ Processing failed: ${error.message}`;
+          console.error('File processing error:', error);
+          status.innerHTML += `
+            <div style="margin-left: var(--space-lg); color: var(--color-error);">
+              ❌ Processing failed: ${error.message}
+            </div>
+          `;
         }
       }
       
-      status.innerHTML += '<br><br><strong>Processing complete!</strong>';
+      // Show completion summary
+      const totalDetections = results.reduce((sum, r) => sum + r.detections, 0);
+      const sanitizedCount = results.filter(r => r.sanitized).length;
+      
+      status.innerHTML += `
+        <div style="margin-top: var(--space-lg); padding: var(--space-lg); background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+          <h3 style="margin: 0 0 var(--space-sm) 0; color: var(--color-primary);">🎉 Processing Complete!</h3>
+          <div style="color: var(--text-secondary);">
+            <strong>${files.length}</strong> files processed<br>
+            <strong>${totalDetections}</strong> sensitive items detected<br>
+            <strong>${sanitizedCount}</strong> files sanitized
+          </div>
+        </div>
+      `;
     }
     
+    // Store processed file data for download
+    const processedFiles = new Map();
+
+    // Download function for sanitized files
+    function downloadFile(sanitizedFilename, originalFilename) {
+      try {
+        // Check if we have the processed file data
+        if (processedFiles.has(sanitizedFilename)) {
+          const fileData = processedFiles.get(sanitizedFilename);
+          
+          // Use the CleanShare Pro downloadFile utility
+          if (window.CleanSharePro && window.CleanSharePro.downloadFile) {
+            window.CleanSharePro.downloadFile(fileData.data, sanitizedFilename, fileData.mimeType);
+            
+            const status = document.getElementById('status');
+            status.innerHTML += `
+              <div class="alert alert-success" style="margin-top: var(--space-md);">
+                <div>
+                  <strong>✅ Download Started</strong>
+                  <p style="margin: 0; margin-top: var(--space-xs);">
+                    The sanitized file "${sanitizedFilename}" is being downloaded.
+                  </p>
+                </div>
+              </div>
+            `;
+          } else {
+            throw new Error('CleanShare Pro download utility not available');
+          }
+        } else {
+          throw new Error('Processed file data not found');
+        }
+      } catch (error) {
+        console.error('Download error:', error);
+        const status = document.getElementById('status');
+        status.innerHTML += `
+          <div class="alert alert-error" style="margin-top: var(--space-md);">
+            <div>
+              <strong>Download Failed</strong>
+              <p style="margin: 0; margin-top: var(--space-xs);">
+                ${error.message}
+              </p>
+            </div>
+          </div>
+        `;
+      }
+    }
+
     async function testCapacitor() {
       const status = document.getElementById('status');
+      
+      // Show testing indicator
+      status.innerHTML = `
+        <div style="display: flex; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-md);">
+          <div class="processing-spinner"></div>
+          <strong>Testing native platform features...</strong>
+        </div>
+      `;
       
       try {
         // Test if we're in a Capacitor environment
         if (window.Capacitor && window.Capacitor.isNativePlatform()) {
-          status.innerHTML = `
-            <strong>Native Platform Detected!</strong><br>
-            Platform: ${window.Capacitor.getPlatform()}<br>
-            Testing native plugins...
+          status.innerHTML += `
+            <div class="alert alert-success">
+              <div>
+                <strong>✅ Native Platform Detected!</strong>
+                <p style="margin: 0; margin-top: var(--space-xs);">
+                  Platform: <strong>${window.Capacitor.getPlatform()}</strong><br>
+                  Testing native plugins...
+                </p>
+              </div>
+            </div>
           `;
           
           // Test ShareIn plugin
           try {
             const { ShareIn } = await import('@cleanshare/native-bridge');
             const result = await ShareIn.getSharedFiles();
-            status.innerHTML += `<br>ShareIn: ${result.files.length} shared files`;
+            status.innerHTML += `
+              <div style="padding: var(--space-md); margin: var(--space-md) 0; background: var(--bg-tertiary); border-radius: var(--radius-md); border-left: 3px solid var(--color-secondary);">
+                <strong>📱 ShareIn Plugin:</strong> ${result.files.length} shared files available
+              </div>
+            `;
           } catch (e) {
-            status.innerHTML += `<br>ShareIn: Not available (${e.message})`;
+            status.innerHTML += `
+              <div style="padding: var(--space-md); margin: var(--space-md) 0; background: var(--bg-tertiary); border-radius: var(--radius-md); border-left: 3px solid var(--color-warning);">
+                <strong>📱 ShareIn Plugin:</strong> Not available (${e.message})
+              </div>
+            `;
           }
           
         } else {
-          status.innerHTML = `
-            <strong>Web Environment Detected</strong><br>
-            Running with web fallbacks...<br>
-            Native features will use JavaScript implementations.
+          status.innerHTML += `
+            <div class="alert alert-info">
+              <div>
+                <strong>🌐 Web Environment Detected</strong>
+                <p style="margin: 0; margin-top: var(--space-xs);">
+                  Running with web fallbacks. Native features will use JavaScript implementations.
+                </p>
+              </div>
+            </div>
           `;
         }
+        
+        // Test CleanShare Pro API availability
+        if (window.CleanSharePro) {
+          status.innerHTML += `
+            <div style="padding: var(--space-md); margin: var(--space-md) 0; background: var(--bg-tertiary); border-radius: var(--radius-md); border-left: 3px solid var(--color-success);">
+              <strong>🔧 CleanShare Pro API:</strong> ✅ Available and ready
+            </div>
+          `;
+        } else {
+          status.innerHTML += `
+            <div style="padding: var(--space-md); margin: var(--space-md) 0; background: var(--bg-tertiary); border-radius: var(--radius-md); border-left: 3px solid var(--color-error);">
+              <strong>🔧 CleanShare Pro API:</strong> ❌ Not loaded
+            </div>
+          `;
+        }
+        
+        status.innerHTML += `
+          <div style="margin-top: var(--space-lg); padding: var(--space-lg); background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+            <h3 style="margin: 0 0 var(--space-sm) 0; color: var(--color-primary);">🧪 Platform Testing Complete</h3>
+            <div style="color: var(--text-secondary);">
+              All available features tested and ready for use.
+            </div>
+          </div>
+        `;
+        
       } catch (error) {
-        status.innerHTML = `Error testing Capacitor: ${error.message}`;
+        console.error('Capacitor test error:', error);
+        status.innerHTML += `
+          <div class="alert alert-error">
+            <div>
+              <strong>Testing Failed</strong>
+              <p style="margin: 0; margin-top: var(--space-xs);">
+                ${error.message}
+              </p>
+            </div>
+          </div>
+        `;
       }
     }
   </script>

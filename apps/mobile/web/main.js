@@ -36,10 +36,26 @@ async function initializeModules() {
       },
       applyRedactions: async (file, actions, options) => {
         // Simplified redaction for mobile demo
+        // Create a demo file with some content
+        const demoContent = `CleanShare Pro - Sanitized Document
+
+This is a demonstration of the CleanShare Pro sanitization process.
+
+Original file: ${file.name}
+Sanitized on: ${new Date().toISOString()}
+Actions applied: ${actions.length} redactions
+
+The sensitive information has been removed or redacted according to your preferences.
+
+This file is safe to share.`;
+        
+        const textEncoder = new TextEncoder();
+        const demoData = textEncoder.encode(demoContent);
+        
         return {
-          data: new Uint8Array([]), // Empty for demo
-          filename: `sanitized_${file.name}`,
-          metadata: { processed: true }
+          data: demoData,
+          filename: `sanitized_${file.name.replace(/\.[^/.]+$/, '')}.txt`,
+          metadata: { processed: true, actionsApplied: actions.length }
         };
       }
     };
