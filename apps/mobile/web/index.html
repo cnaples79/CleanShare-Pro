@@ -99,47 +99,99 @@
   </div>
 
   <script>
-    // Basic mobile app initialization
-    window.addEventListener('DOMContentLoaded', async () => {
-      // Wait for Capacitor to load
+    // Basic mobile app initialization  
+    console.log('Starting CleanShare Pro initialization...');
+    
+    // Initialize immediately for web, wait for Capacitor if available
+    async function startApp() {
+      console.log('DOM loaded, initializing CleanShare Pro...');
+      
+      // Wait for Capacitor to load (with timeout for web environments)
       await new Promise(resolve => {
         if (window.Capacitor) {
+          console.log('Capacitor detected, waiting for ready...');
           resolve();
         } else {
-          document.addEventListener('deviceready', resolve);
+          console.log('No Capacitor detected, checking for deviceready event...');
+          
+          // Set a timeout in case we're running in a web browser
+          const timeout = setTimeout(() => {
+            console.log('Timeout reached, proceeding without Capacitor...');
+            resolve();
+          }, 500);
+          
+          document.addEventListener('deviceready', () => {
+            console.log('Device ready event received');
+            clearTimeout(timeout);
+            resolve();
+          });
         }
       });
       
+      console.log('Capacitor initialization complete, starting app...');
+      
       // Initialize the main app
       initializeApp();
-    });
+    }
+    
+    // Start when DOM is ready
+    if (document.readyState === 'loading') {
+      window.addEventListener('DOMContentLoaded', startApp);
+    } else {
+      // DOM is already loaded
+      startApp();
+    }
     
     function initializeApp() {
+      console.log('Initializing CleanShare Pro app interface...');
       const appDiv = document.getElementById('app');
       
-      appDiv.innerHTML = `
-        <div style="padding: 20px;">
-          <h1>CleanShare Pro</h1>
-          <p>Privacy-focused document sanitization</p>
-          
-          <div class="file-drop-zone" onclick="selectFile()">
-            <div>
-              <h3>📄 Select Files</h3>
-              <p>Tap to select images or PDFs</p>
+      if (!appDiv) {
+        console.error('App div not found!');
+        return;
+      }
+      
+      try {
+        appDiv.innerHTML = `
+          <div style="padding: 20px;">
+            <h1>CleanShare Pro</h1>
+            <p>Privacy-focused document sanitization</p>
+            
+            <div class="file-drop-zone" onclick="selectFile()">
+              <div>
+                <h3>📄 Select Files</h3>
+                <p>Tap to select images or PDFs</p>
+              </div>
+            </div>
+            
+            <input type="file" id="fileInput" class="file-input" accept="image/*,.pdf" multiple onchange="handleFiles(this.files)">
+            
+            <div style="margin-top: 20px;">
+              <button class="btn" onclick="testCapacitor()">Test Native Features</button>
+            </div>
+            
+            <div id="status" style="margin-top: 20px; padding: 10px; background: #f8f9fa; border-radius: 5px;">
+              Ready to process files
+            </div>
+            
+            <div style="margin-top: 10px; font-size: 12px; color: #666;">
+              Platform: ${window.Capacitor ? window.Capacitor.getPlatform() : 'web'}<br>
+              CleanShare API: ${window.CleanSharePro ? '✓ Available' : '✗ Not loaded'}
             </div>
           </div>
-          
-          <input type="file" id="fileInput" class="file-input" accept="image/*,.pdf" multiple onchange="handleFiles(this.files)">
-          
-          <div style="margin-top: 20px;">
-            <button class="btn" onclick="testCapacitor()">Test Native Features</button>
+        `;
+        
+        console.log('✓ App interface initialized successfully');
+      } catch (error) {
+        console.error('Failed to initialize app interface:', error);
+        appDiv.innerHTML = `
+          <div style="padding: 20px; text-align: center;">
+            <h1>CleanShare Pro</h1>
+            <p style="color: red;">Initialization error: ${error.message}</p>
+            <button onclick="location.reload()">Retry</button>
           </div>
-          
-          <div id="status" style="margin-top: 20px; padding: 10px; background: #f8f9fa; border-radius: 5px;">
-            Ready to process files
-          </div>
-        </div>
-      `;
+        `;
+      }
     }
     
     function selectFile() {
