@@ -1,0 +1,21 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        // Android Gradle plugin.  You can update the version to match your environment.
+        classpath 'com.android.tools.build:gradle:8.1.0'
+        // Capacitor Android plugin.  Required for Capacitor projects.
+        classpath 'com.getcapacitor:capacitor-android:5.0.5'
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "@cleanshare/native-bridge",
+  "version": "0.1.0",
+  "private": false,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "description": "Capacitor plugin wrappers for CleanShare Pro.",
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@capacitor/core": "^5.0.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.2.2"
+  }
+}

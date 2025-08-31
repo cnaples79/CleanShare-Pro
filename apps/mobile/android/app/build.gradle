@@ -1,0 +1,38 @@
+apply plugin: 'com.android.application'
+apply plugin: 'com.getcapacitor'
+
+android {
+    compileSdkVersion 33
+
+    defaultConfig {
+        applicationId "com.cleanshare.pro"
+        minSdkVersion 22
+        targetSdkVersion 33
+        versionCode 1
+        versionName "0.1.0"
+    }
+
+    buildTypes {
+        release {
+            // For now we disable code shrinking.  You can enable ProGuard
+            // once you have tested that your dependencies are compatible.
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    // Ensure Java 17 compatibility when using newer Android gradle plugin
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation "androidx.core:core-ktx:1.10.1"
+    // Depend on the Capacitor runtime.  This will be resolved from the
+    // classpath entry defined in the top level build.gradle.
+    implementation 'com.getcapacitor:capacitor-android:5.0.5'
+    // When you implement your own plugins, add them here.  For example:
+    // implementation project(':cleanshare-sharein')
+}

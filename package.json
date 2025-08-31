@@ -1,0 +1,15 @@
+{
+  "name": "cleanshare-pro",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "pnpm --filter @cleanshare/ui dev",
+    "build": "pnpm --filter @cleanshare/ui build",
+    "start": "pnpm --filter @cleanshare/ui start",
+    "test": "echo \"No tests defined yet\""
+  }
+}

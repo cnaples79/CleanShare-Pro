@@ -1,0 +1,14 @@
+node_modules
+dist
+build
+*.log
+*.tmp
+.DS_Store
+*.swp
+*.swo
+package-lock.json
+pnp*.js
+*.tsbuildinfo
+*.local
+coverage
+out

@@ -1,0 +1,6 @@
+// Settings for the Android project.  This file declares the modules
+// that make up the project.  Here we include the main application
+// module called 'app'.
+
+include ':app'
+rootProject.name = 'CleanSharePro'

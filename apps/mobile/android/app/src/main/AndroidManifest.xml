@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android manifest for the CleanShare Pro application.  This file
+  declares the package name and entry point (MainActivity) as well as
+  application metadata.  See the Android documentation for more
+  information about manifest fields.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.cleanshare.pro">
+
+    <application
+        android:allowBackup="true"
+        android:label="CleanShare Pro"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+        <activity
+            android:name="com.cleansharepro.MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>

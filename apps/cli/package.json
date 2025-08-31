@@ -1,0 +1,17 @@
+{
+  "name": "@cleanshare/cli",
+  "version": "0.1.0",
+  "private": false,
+  "bin": {
+    "cleanshare-cli": "bin/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json || true"
+  },
+  "dependencies": {
+    "@cleanshare/core-detect": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.2.2"
+  }
+}

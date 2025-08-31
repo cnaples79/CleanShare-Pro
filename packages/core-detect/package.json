@@ -1,0 +1,21 @@
+{
+  "name": "@cleanshare/core-detect",
+  "version": "0.1.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "private": false,
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^3.1.81",
+    "tesseract.js": "^4.0.2",
+    "uuid": "^9.0.0",
+    "jsqr": "^1.4.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.2.2"
+  }
+}
