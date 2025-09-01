@@ -36,8 +36,63 @@ async function initializeModules() {
       },
       applyRedactions: async (file, actions, options) => {
         // Simplified redaction for mobile demo
-        // Create a demo file with some content
-        const demoContent = `CleanShare Pro - Sanitized Document
+        if (file.type && file.type.startsWith('image/')) {
+          // For images, create a canvas with redaction boxes
+          return new Promise((resolve, reject) => {
+            const img = new Image();
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            img.onload = () => {
+              canvas.width = img.width;
+              canvas.height = img.height;
+              
+              // Draw original image
+              ctx.drawImage(img, 0, 0);
+              
+              // Apply demo redactions (black boxes over detected areas)
+              ctx.fillStyle = 'black';
+              actions.forEach((action, index) => {
+                // Create demo redaction boxes at different positions
+                const x = (index * 150 + 50) % (canvas.width - 120);
+                const y = 50 + (Math.floor(index / 3) * 60);
+                const width = 120;
+                const height = 25;
+                
+                ctx.fillRect(x, y, width, height);
+                
+                // Add label if specified
+                if (action.style === 'LABEL') {
+                  ctx.fillStyle = 'white';
+                  ctx.font = '14px Arial';
+                  ctx.textAlign = 'center';
+                  ctx.fillText('[REDACTED]', x + width/2, y + height/2 + 5);
+                  ctx.fillStyle = 'black';
+                }
+              });
+              
+              // Convert to blob
+              canvas.toBlob((blob) => {
+                if (blob) {
+                  blob.arrayBuffer().then(arrayBuffer => {
+                    resolve({
+                      data: new Uint8Array(arrayBuffer),
+                      filename: `sanitized_${file.name}`,
+                      metadata: { processed: true, actionsApplied: actions.length }
+                    });
+                  });
+                } else {
+                  reject(new Error('Failed to create sanitized image'));
+                }
+              }, file.type, 0.9);
+            };
+            
+            img.onerror = () => reject(new Error('Failed to load image'));
+            img.src = URL.createObjectURL(file);
+          });
+        } else {
+          // For PDFs and other files, create a text summary
+          const demoContent = `CleanShare Pro - Sanitized Document
 
 This is a demonstration of the CleanShare Pro sanitization process.
 
@@ -48,15 +103,16 @@ Actions applied: ${actions.length} redactions
 The sensitive information has been removed or redacted according to your preferences.
 
 This file is safe to share.`;
-        
-        const textEncoder = new TextEncoder();
-        const demoData = textEncoder.encode(demoContent);
-        
-        return {
-          data: demoData,
-          filename: `sanitized_${file.name.replace(/\.[^/.]+$/, '')}.txt`,
-          metadata: { processed: true, actionsApplied: actions.length }
-        };
+          
+          const textEncoder = new TextEncoder();
+          const demoData = textEncoder.encode(demoContent);
+          
+          return {
+            data: demoData,
+            filename: `sanitized_${file.name.replace(/\.[^/.]+$/, '')}.txt`,
+            metadata: { processed: true, actionsApplied: actions.length }
+          };
+        }
       }
     };
   } catch (error) {

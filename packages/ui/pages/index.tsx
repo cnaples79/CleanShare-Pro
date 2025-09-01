@@ -18,6 +18,7 @@ interface FileState {
   pageImages: string[];
   currentPage: number;
   outputUri?: string;
+  previewUri?: string; // Preview of sanitized file
   processing?: boolean;
   error?: string;
 }
@@ -128,6 +129,9 @@ export default function CleanSharePro() {
     ));
 
     try {
+      // Re-analyze the file to ensure lastResult is set correctly
+      await analyzeDocument(fileState.file, { presetId });
+      
       const redactionActions: RedactionAction[] = fileState.detections
         .filter(det => fileState.selected[det.id])
         .map(det => ({
@@ -141,13 +145,14 @@ export default function CleanSharePro() {
         style: 'BOX'
       });
 
-      // Create download blob
-      const blob = new Blob([result.data], { type: fileState.file.type });
+      // Convert data URI to blob for download
+      const response = await fetch(result.fileUri);
+      const blob = await response.blob();
       const url = URL.createObjectURL(blob);
 
       // Update file state with result
       setFileStates(prev => prev.map((state, i) => 
-        i === fileIndex ? { ...state, outputUri: url, processing: false } : state
+        i === fileIndex ? { ...state, outputUri: url, previewUri: result.fileUri, processing: false } : state
       ));
 
     } catch (error) {
@@ -424,6 +429,35 @@ export default function CleanSharePro() {
                             </button>
                           )}
                         </div>
+                        
+                        {/* Preview of sanitized file */}
+                        {currentFileState.previewUri && (
+                          <div style={{ marginTop: 'var(--space-xl)', padding: 'var(--space-lg)', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}>
+                            <h4 style={{ marginBottom: 'var(--space-md)', fontSize: 'var(--font-size-lg)', color: 'var(--color-primary)' }}>
+                              🔒 Sanitized Preview
+                            </h4>
+                            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: 'var(--space-md)', background: 'var(--bg-primary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}>
+                              {currentFileState.file.type.startsWith('image/') ? (
+                                <img
+                                  src={currentFileState.previewUri}
+                                  alt="Sanitized preview"
+                                  style={{
+                                    maxWidth: '100%',
+                                    maxHeight: '400px',
+                                    borderRadius: 'var(--radius-sm)',
+                                    boxShadow: 'var(--shadow-md)'
+                                  }}
+                                />
+                              ) : (
+                                <div style={{ textAlign: 'center', padding: 'var(--space-xl)', color: 'var(--text-secondary)' }}>
+                                  <div style={{ fontSize: 'var(--font-size-3xl)', marginBottom: 'var(--space-md)' }}>📄</div>
+                                  <p>PDF sanitized successfully</p>
+                                  <p style={{ fontSize: 'var(--font-size-sm)' }}>Click download to save the clean file</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="alert alert-success">
