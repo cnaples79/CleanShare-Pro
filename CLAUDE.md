@@ -107,60 +107,158 @@ CleanShare Pro is a monorepo for a cross-platform privacy tool that sanitizes im
 - **Vector PDF redaction:** Can be added to native plugins or WASM layer
 - **Cloud assist:** Send only OCR tokens/boxes to remote service, merge with local results
 
-## Phase 2 Implementation Plan
+## CleanShare Pro Development Plan
 
-### Priority 1: Production Readiness
-1. **Fix ARM64/Android SWC Issues**
-   - Investigate Next.js 14.1.0 SWC compilation on ARM64
-   - Consider upgrading to newer Next.js version or alternative build setup
-   - Implement static export functionality for mobile deployment
+### Phase 1: Critical Bug Fixes (CURRENT PRIORITY)
+**Status**: Professional UI ✅ implemented, core functionality 🐛 broken
 
-2. **Comprehensive Testing**
-   - Unit tests for all detector functions
-   - Integration tests for detection pipeline
-   - End-to-end tests for file processing workflow
-   - Mobile app testing on actual devices
+1. **Web App Sanitization Pipeline** 
+   - Debug "call analyzeDocument() first" error in applyRedactions
+   - Investigate lastResult state management in core-detect package
+   - Fix race conditions between file analysis and redaction application
+   - Ensure proper detection ID mapping for redaction actions
 
-3. **Performance Optimization**
-   - Implement proper WASM worker pooling
-   - Add progress indicators for long-running operations
-   - Optimize memory usage for large PDF files
-   - Implement file chunking for better performance
+2. **Web App Preview System**
+   - Debug why previewUri is not displaying sanitized images
+   - Verify data URI to blob conversion in handleSanitize
+   - Check image loading and rendering in preview component
+   - Test both image and PDF preview functionality
 
-### Priority 2: Native Mobile Features
-4. **Android Native Plugins**
-   - Implement ShareIn plugin for ACTION_SEND intents
-   - Integrate ML Kit for native OCR performance
-   - Add native PDF processing capabilities
+3. **Mobile App File Download**
+   - Fix canvas-to-blob conversion producing 0kb files
+   - Debug async timing issues in image processing
+   - Verify proper MIME type handling for downloads
+   - Test actual image processing with redaction boxes
 
-5. **iOS Native Plugins**
-   - Create Share Extension for receiving shared files
-   - Integrate Apple Vision framework for text recognition
-   - Implement native PDF processing with PDFKit
+4. **Cross-Platform Consistency**
+   - Ensure both platforms use compatible file processing APIs
+   - Standardize error handling and user feedback
+   - Verify detection results are consistent between platforms
 
-6. **Enhanced Mobile UI**
-   - Touch-optimized detection overlay
-   - Responsive design improvements
-   - Native navigation and gestures
+**Success Criteria**: Users can upload files, see detections, apply redactions, preview results, and download sanitized files on both web and mobile
 
-### Priority 3: Advanced Features
-7. **CLI Tool Implementation**
-   - Complete command-line interface
-   - Batch processing capabilities
-   - JSON/CSV reporting options
-   - CI/CD integration features
+### Phase 2: Core Feature Completion
+**Goal**: Full-featured privacy tool with reliable processing
 
-8. **Enhanced Detection**
-   - Face detection using MediaPipe or TensorFlow.js
-   - Advanced barcode detection beyond QR codes
-   - Custom detection pattern training
-   - Cloud-based detection assistance
+1. **Enhanced Detection Pipeline**
+   - Implement missing detector types (SSN, passport numbers, addresses)
+   - Add custom detection patterns and user-defined rules
+   - Improve confidence scoring and false positive reduction
+   - Add bulk processing capabilities for multiple files
 
-9. **Production Deployment**
-   - App store preparation and assets
-   - Code signing and distribution
-   - Privacy policy and compliance documentation
-   - Performance monitoring and analytics
+2. **Advanced Redaction Options**
+   - Vector-based PDF redaction (instead of raster overlay)
+   - Custom redaction styles (patterns, colors, opacity)
+   - Selective redaction with manual review workflow
+   - Metadata stripping and document sanitization
+
+3. **File Format Support**
+   - Extended image format support (HEIC, WebP, TIFF)
+   - Advanced PDF processing (forms, annotations, layers)
+   - Document format support (DOCX, XLSX with export to PDF)
+   - Batch processing workflow for mixed file types
+
+4. **User Experience Improvements**
+   - Preset management and sharing
+   - Processing history and audit trail
+   - Undo/redo functionality for redactions
+   - Keyboard shortcuts and accessibility features
+
+### Phase 3: Native Mobile Integration
+**Goal**: Full native iOS/Android apps with platform features
+
+1. **iOS Native Implementation**
+   - Capacitor to full native iOS app migration
+   - Apple Vision framework for enhanced OCR
+   - Share Extension for receiving files from other apps
+   - iOS-specific UI patterns and navigation
+
+2. **Android Native Implementation**
+   - Capacitor to full native Android app migration  
+   - ML Kit integration for improved text recognition
+   - ACTION_SEND intent handling for file sharing
+   - Material Design 3 UI implementation
+
+3. **Platform-Specific Features**
+   - iOS: Shortcuts app integration, Siri support
+   - Android: Tasker integration, quick tiles
+   - Both: Background processing, file provider integration
+   - Native file system integration and permissions
+
+4. **Performance Optimization**
+   - Native image processing libraries
+   - GPU-accelerated operations where possible
+   - Memory management for large files
+   - Background processing capabilities
+
+### Phase 4: Production Readiness
+**Goal**: App store ready applications with enterprise features
+
+1. **Quality Assurance**
+   - Comprehensive automated testing suite
+   - Manual testing on various devices and OS versions
+   - Performance benchmarking and optimization
+   - Security audit and penetration testing
+
+2. **Enterprise Features**
+   - API for integration with existing workflows
+   - Command-line tool for server environments
+   - Batch processing with reporting
+   - Configuration management and deployment tools
+
+3. **Compliance and Documentation**
+   - Privacy policy and data handling documentation
+   - GDPR, CCPA, and other regulatory compliance
+   - Security certifications and audits
+   - User documentation and training materials
+
+4. **Distribution and Deployment**
+   - App Store and Google Play Store preparation
+   - Enterprise distribution options (MDM, direct download)
+   - Web app PWA optimization and deployment
+   - Update mechanism and version management
+
+### Phase 5: Advanced Features and Scale
+**Goal**: Market-leading privacy tool with AI enhancements
+
+1. **AI and Machine Learning**
+   - Custom ML models for domain-specific detection
+   - Cloud-based processing options for enhanced accuracy
+   - Real-time processing suggestions and automation
+   - Adaptive learning from user corrections
+
+2. **Enterprise and Team Features**
+   - Multi-user workflows and approval processes
+   - Team dashboards and analytics
+   - Integration with enterprise document management
+   - SSO and enterprise authentication support
+
+3. **Advanced Privacy Features**
+   - End-to-end encryption for cloud processing
+   - Zero-knowledge architecture options
+   - Advanced threat detection (steganography, etc.)
+   - Privacy scoring and risk assessment
+
+4. **Ecosystem Integration**
+   - API marketplace and third-party integrations
+   - Plugin system for custom detectors
+   - Webhook support for workflow automation
+   - Cross-platform synchronization and backup
+
+### Current Session Focus
+**Immediate Next Steps (Phase 1)**:
+1. Debug web app analyzeDocument/applyRedactions state management
+2. Fix web app preview rendering and data URI handling  
+3. Resolve mobile app canvas processing and file download
+4. Ensure consistent cross-platform functionality
+5. Complete end-to-end testing of both applications
+
+**Success Metrics**:
+- Upload → Analyze → Review → Sanitize → Download workflow works 100%
+- Preview shows actual redacted content accurately
+- Downloaded files contain proper redacted data
+- Error handling provides clear user feedback
+- Both platforms provide consistent user experience
 
 ## Known Issues & Limitations
 
