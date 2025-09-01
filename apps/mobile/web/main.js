@@ -36,7 +36,7 @@ async function initializeModules() {
       },
       applyRedactions: async (file, actions, options) => {
         // Simplified redaction for mobile demo
-        if (file.type && file.type.startsWith('image/')) {
+        if (file && file.type && file.type.startsWith('image/')) {
           // For images, create a canvas with redaction boxes
           return new Promise((resolve, reject) => {
             const img = new Image();
@@ -80,14 +80,22 @@ async function initializeModules() {
                       filename: `sanitized_${file.name}`,
                       metadata: { processed: true, actionsApplied: actions.length }
                     });
+                  }).catch(err => {
+                    console.error('ArrayBuffer conversion failed:', err);
+                    reject(err);
                   });
                 } else {
+                  console.error('Failed to create sanitized image - canvas.toBlob returned null');
                   reject(new Error('Failed to create sanitized image'));
                 }
               }, file.type, 0.9);
             };
             
-            img.onerror = () => reject(new Error('Failed to load image'));
+            img.onerror = (err) => {
+              console.error('Image loading failed for mobile redaction:', err);
+              reject(new Error('Failed to load image'));
+            };
+            
             img.src = URL.createObjectURL(file);
           });
         } else {

@@ -129,21 +129,20 @@ export default function CleanSharePro() {
     ));
 
     try {
-      // Re-analyze the file to ensure lastResult is set correctly
+      // Re-analyze the file to ensure lastResult is set correctly  
       await analyzeDocument(fileState.file, { presetId });
       
       const redactionActions: RedactionAction[] = fileState.detections
         .filter(det => fileState.selected[det.id])
         .map(det => ({
-          id: det.id,
-          action: 'REDACT' as const,
+          detectionId: det.id,
           style: fileState.actions[det.id]?.style || 'BOX',
           labelText: fileState.actions[det.id]?.labelText
         }));
 
       const result = await applyRedactions(fileState.file, redactionActions, {
         style: 'BOX'
-      });
+      }, fileState.detections);
 
       // Convert data URI to blob for download
       const response = await fetch(result.fileUri);

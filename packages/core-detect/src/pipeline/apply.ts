@@ -39,7 +39,7 @@ async function fileToImage(file: File | Blob): Promise<HTMLImageElement> {
 }
 
 /** Apply redactions to an image.  Returns a Data URI. */
-async function applyRedactionsToImage(file: File | Blob, actions: RedactionAction[], quality = 0.92): Promise<string> {
+async function applyRedactionsToImage(file: File | Blob, actions: RedactionAction[], quality = 0.92, detectionResult?: {detections: Detection[]}): Promise<string> {
   const img = await fileToImage(file);
   const canvas = document.createElement('canvas');
   canvas.width = img.width;
@@ -50,8 +50,9 @@ async function applyRedactionsToImage(file: File | Blob, actions: RedactionActio
   ctx.drawImage(img, 0, 0);
   // Build detection map
   const map = new Map<string, Detection>();
-  if (lastResult) {
-    for (const det of lastResult.detections) {
+  const detectionsToUse = detectionResult || lastResult;
+  if (detectionsToUse) {
+    for (const det of detectionsToUse.detections) {
       map.set(det.id, det);
     }
   }
@@ -196,13 +197,14 @@ async function applyRedactionsToImage(file: File | Blob, actions: RedactionActio
 }
 
 /** Apply redactions to a PDF.  Returns a Data URI of the new PDF. */
-async function applyRedactionsToPdf(file: File | Blob, actions: RedactionAction[]): Promise<string> {
+async function applyRedactionsToPdf(file: File | Blob, actions: RedactionAction[], detectionResult?: {detections: Detection[]}): Promise<string> {
   const origBytes = await file.arrayBuffer();
   const origPdf = await PDFDocument.load(origBytes);
   const newPdf = await PDFDocument.create();
   const detectionMap = new Map<string, Detection>();
-  if (lastResult) {
-    for (const det of lastResult.detections) {
+  const detectionsToUse = detectionResult || lastResult;
+  if (detectionsToUse) {
+    for (const det of detectionsToUse.detections) {
       detectionMap.set(det.id, det);
     }
   }
@@ -294,26 +296,35 @@ async function applyRedactionsToPdf(file: File | Blob, actions: RedactionAction[
  * In a real application you should pass the detections explicitly to avoid
  * hidden state.
  */
-export async function applyRedactions(file: File | Blob, actions: RedactionAction[], opts: ApplyOptions): Promise<ApplyResult> {
-  if (!lastResult) {
+export async function applyRedactions(file: File | Blob, actions: RedactionAction[], opts: ApplyOptions, detections?: Detection[]): Promise<ApplyResult> {
+  // If detections are provided directly, create a temporary result object
+  let result = lastResult;
+  if (detections && detections.length > 0) {
+    result = {
+      detections: detections,
+      pages: Math.max(...detections.map(d => d.box.page ?? 0)) + 1 || 1
+    };
+  }
+  
+  if (!result) {
     throw new Error('No analysis result available.  Call analyzeDocument() first.');
   }
   const mime = (file as any).type || '';
   let fileUri: string;
   if (mime === 'application/pdf' || opts.output === 'pdf') {
-    fileUri = await applyRedactionsToPdf(file, actions);
+    fileUri = await applyRedactionsToPdf(file, actions, result);
   } else {
     const quality = opts.quality ?? 0.92;
-    fileUri = await applyRedactionsToImage(file, actions, quality);
+    fileUri = await applyRedactionsToImage(file, actions, quality, result);
   }
   // Build a simple report summarising redactions
   const report: any = {};
-  if (lastResult) {
-    report.totalDetections = lastResult.detections.length;
+  if (result) {
+    report.totalDetections = result.detections.length;
     report.redactedCount = actions.length;
     const counts: Record<string, number> = {};
     for (const action of actions) {
-      const det = lastResult.detections.find(d => d.id === action.detectionId);
+      const det = result.detections.find(d => d.id === action.detectionId);
       if (det) {
         counts[det.kind] = (counts[det.kind] || 0) + 1;
       }
