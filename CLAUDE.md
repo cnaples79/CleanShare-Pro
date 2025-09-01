@@ -20,8 +20,8 @@ pnpm dev
 # Access at: http://localhost:3000
 
 # Start mobile app development server
-cd apps/mobile/web && python3 -m http.server 3001
-# Access at: http://localhost:3001
+cd apps/mobile && python3 -m http.server 3002
+# Access at: http://localhost:3002 (Note: Port 3001 may be in use)
 
 # Build all packages (TypeScript compilation) - REQUIRED FIRST
 pnpm --filter @cleanshare/core-detect build
@@ -36,13 +36,19 @@ pnpm --filter @cleanshare/native-bridge build
 ```
 
 **Current Status:** 
-- ✅ Web App (localhost:3000): Fully functional with complete detection pipeline
-- ✅ Mobile App (localhost:3001): Working with demo functionality and Capacitor integration
+- 🔄 Web App (localhost:3000): Professional UI implemented, but sanitization failing
+- 🔄 Mobile App (localhost:3002): Professional UI implemented, but download producing 0kb files
 - ✅ WASM Workers: Implemented with Tesseract.js OCR and PDF processing
 - ✅ Native Bridge: Web fallbacks implemented for all Capacitor plugins
 - ⚠️ Production Build: ARM64 SWC issues prevent static builds (use dev mode)
 - ❌ Tests: Not yet implemented
 - ❌ CLI: Placeholder only
+
+**Active Issues (As of Latest Session):**
+- 🐛 Web App: Sanitization error "call analyzeDocument() first" despite re-analysis attempt
+- 🐛 Web App: Sanitized document preview not displaying
+- 🐛 Mobile App: Download failing and producing 0kb image files 
+- 🐛 Mobile App: Canvas processing not generating valid image data
 
 ## Architecture
 
@@ -158,11 +164,25 @@ CleanShare Pro is a monorepo for a cross-platform privacy tool that sanitizes im
 
 ## Known Issues & Limitations
 
+**Critical Functionality Issues:**
+- **Web App Sanitization**: "call analyzeDocument() first" error persists despite re-analysis before redaction
+- **Web App Preview**: Sanitized document preview not rendering despite UI implementation
+- **Mobile App Downloads**: Producing 0kb files, canvas-to-blob conversion failing
+- **Mobile App Canvas**: Image processing logic may have async/timing issues
+
+**Platform/Build Issues:**
 - **SWC Compilation**: ARM64/Android builds fail due to missing @next/swc-android-arm64 package
 - **Static Export**: Next.js static export currently disabled due to SWC issues
 - **Testing**: No automated tests implemented yet
 - **CLI**: Placeholder implementation only
 - **Native Features**: Only web fallbacks implemented, no native iOS/Android code
+
+**Development Notes:**
+- Both web and mobile apps have professional UI implemented and working file upload
+- File analysis (detection) works on both platforms with proper UI feedback
+- Core issue appears to be in the sanitization/redaction pipeline and file output generation
+- Mobile app produces visual redactions on canvas but fails to create downloadable files
+- Web app has race condition or state management issue with analysis results
 
 ## Workspace Configuration
 
