@@ -67,6 +67,11 @@ async function initializeModules() {
         }
 
         try {
+          // Check if Tesseract is available
+          if (typeof Tesseract === 'undefined') {
+            throw new Error('Tesseract.js is not loaded');
+          }
+          
           // Convert file to data URL for Tesseract
           const dataURL = await new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -316,26 +321,23 @@ async function processFile(file) {
   }
 
   try {
-    // Convert file to the expected format
-    const inputFile = {
-      name: file.name,
-      type: file.type.startsWith('image/') ? 'image' : 'pdf',
-      data: await file.arrayBuffer()
-    };
-
-    // Use the core detection pipeline
-    const result = await coreDetect.analyzeDocument(inputFile);
+    console.log('Mobile: processFile called with:', file.name, file.type, file.size, 'bytes');
     
+    // Pass the raw file directly to analyzeDocument (our OCR function expects the raw File)
+    const result = await coreDetect.analyzeDocument(file);
+    
+    console.log('Mobile: processFile analysis completed, detections:', result.detections?.length || 0);
     return {
       success: true,
       detections: result.detections,
       pages: result.pages
     };
   } catch (error) {
-    console.error('File processing failed:', error);
+    console.error('Mobile: File processing failed:', error);
     return {
       success: false,
-      error: error.message
+      error: error.message,
+      detections: []
     };
   }
 }
