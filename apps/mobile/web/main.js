@@ -50,19 +50,40 @@ async function initializeModules() {
               // Draw original image
               ctx.drawImage(img, 0, 0);
               
-              // Apply demo redactions (black boxes over detected areas)
+              // Apply redactions using actual detection boxes
               ctx.fillStyle = 'black';
-              actions.forEach((action, index) => {
-                // Create demo redaction boxes at different positions
-                const x = (index * 150 + 50) % (canvas.width - 120);
-                const y = 50 + (Math.floor(index / 3) * 60);
-                const width = 120;
-                const height = 25;
+              const detections = options?.detections || [];
+              const detectionMap = new Map();
+              detections.forEach(det => detectionMap.set(det.id, det));
+              
+              actions.forEach((action) => {
+                const detection = detectionMap.get(action.detectionId);
+                if (detection && detection.box) {
+                  // Use actual detection coordinates
+                  const x = detection.box.x * canvas.width;
+                  const y = detection.box.y * canvas.height;
+                  const width = detection.box.w * canvas.width;
+                  const height = detection.box.h * canvas.height;
+                  
+                  ctx.fillRect(x, y, width, height);
+                } else {
+                  // Fallback to demo positions if detection not found
+                  const index = actions.indexOf(action);
+                  const x = (index * 150 + 50) % (canvas.width - 120);
+                  const y = 50 + (Math.floor(index / 3) * 60);
+                  const width = 120;
+                  const height = 25;
+                  
+                  ctx.fillRect(x, y, width, height);
+                }
                 
-                ctx.fillRect(x, y, width, height);
-                
-                // Add label if specified
-                if (action.style === 'LABEL') {
+                // Add label if specified (only for actual detections, not fallback)
+                if (action.style === 'LABEL' && detection && detection.box) {
+                  const x = detection.box.x * canvas.width;
+                  const y = detection.box.y * canvas.height;
+                  const width = detection.box.w * canvas.width;
+                  const height = detection.box.h * canvas.height;
+                  
                   ctx.fillStyle = 'white';
                   ctx.font = '14px Arial';
                   ctx.textAlign = 'center';
@@ -199,19 +220,14 @@ async function processFile(file) {
 }
 
 // Apply redactions to a processed document
-async function applyRedactions(originalFile, detections, redactionStyle) {
+async function applyRedactions(originalFile, actions, options) {
   if (!coreDetect) {
     throw new Error('Core detection module not available');
   }
 
   try {
-    const inputFile = {
-      name: originalFile.name,
-      type: originalFile.type.startsWith('image/') ? 'image' : 'pdf',
-      data: await originalFile.arrayBuffer()
-    };
-
-    const result = await coreDetect.applyRedactions(inputFile, detections, redactionStyle);
+    // Use the demo coreDetect.applyRedactions which expects (file, actions, options)
+    const result = await coreDetect.applyRedactions(originalFile, actions, options);
     
     return {
       success: true,

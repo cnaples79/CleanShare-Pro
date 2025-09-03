@@ -698,9 +698,11 @@
             
             // Apply redactions if detections found
             if (result.detections.length > 0) {
+              // Pass detections to the applyRedactions function  
+              const redactionActions = result.detections.map(d => ({ detectionId: d.id, style: 'BOX' }));
               const redactionResult = await window.CleanSharePro.applyRedactions(file, 
-                result.detections.map(d => ({ id: d.id, action: 'REDACT', style: 'BOX' })),
-                { style: 'BOX' }
+                redactionActions,
+                { style: 'BOX', detections: result.detections }
               );
               
               if (redactionResult.success) {
