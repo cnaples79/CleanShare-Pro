@@ -21,14 +21,14 @@ async function initializeModules() {
               kind: 'EMAIL',
               text: 'demo@example.com',
               confidence: 0.95,
-              box: { x: 100, y: 50, width: 120, height: 20 }
+              box: { x: 0.15, y: 0.1, w: 0.2, h: 0.05 }
             },
             {
               id: 'demo-2', 
               kind: 'PHONE',
               text: '555-123-4567',
               confidence: 0.92,
-              box: { x: 80, y: 100, width: 100, height: 18 }
+              box: { x: 0.12, y: 0.2, w: 0.18, h: 0.04 }
             }
           ],
           pages: 1
@@ -36,6 +36,15 @@ async function initializeModules() {
       },
       applyRedactions: async (file, actions, options) => {
         // Simplified redaction for mobile demo
+        console.log('Mobile applyRedactions called:', { 
+          fileName: file?.name, 
+          fileType: file?.type,
+          actionsCount: actions?.length, 
+          detectionsCount: options?.detections?.length,
+          actions: actions,
+          detections: options?.detections
+        });
+        
         if (file && file.type && file.type.startsWith('image/')) {
           // For images, create a canvas with redaction boxes
           return new Promise((resolve, reject) => {
@@ -56,14 +65,32 @@ async function initializeModules() {
               const detectionMap = new Map();
               detections.forEach(det => detectionMap.set(det.id, det));
               
-              actions.forEach((action) => {
+              console.log('Processing redactions:', {
+                detectionsCount: detections.length,
+                actionsCount: actions.length,
+                detectionIds: detections.map(d => d.id),
+                actionIds: actions.map(a => a.detectionId)
+              });
+              
+              actions.forEach((action, index) => {
                 const detection = detectionMap.get(action.detectionId);
+                console.log(`Action ${index}:`, { 
+                  detectionId: action.detectionId, 
+                  foundDetection: !!detection,
+                  box: detection?.box 
+                });
                 if (detection && detection.box) {
                   // Use actual detection coordinates
                   const x = detection.box.x * canvas.width;
                   const y = detection.box.y * canvas.height;
                   const width = detection.box.w * canvas.width;
                   const height = detection.box.h * canvas.height;
+                  
+                  console.log(`Drawing redaction box:`, { 
+                    canvasSize: `${canvas.width}x${canvas.height}`,
+                    normalizedBox: detection.box,
+                    pixelBox: { x, y, width, height }
+                  });
                   
                   ctx.fillRect(x, y, width, height);
                 } else {
@@ -93,9 +120,12 @@ async function initializeModules() {
               });
               
               // Convert to blob
+              console.log('Converting canvas to blob...');
               canvas.toBlob((blob) => {
+                console.log('Canvas toBlob result:', blob?.size, 'bytes');
                 if (blob) {
                   blob.arrayBuffer().then(arrayBuffer => {
+                    console.log('Final sanitized image:', arrayBuffer.byteLength, 'bytes');
                     resolve({
                       data: new Uint8Array(arrayBuffer),
                       filename: `sanitized_${file.name}`,
