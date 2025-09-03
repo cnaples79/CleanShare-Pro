@@ -5,63 +5,49 @@ let coreDetect = null;
 let nativeBridge = null;
 let wasmWorkers = null;
 
-// Simple detector functions that match the core-detect package
-const detectors = {
-  EMAIL: {
-    detect: (text) => {
-      const matches = [];
-      // Create new regex instance each time to avoid global state issues
-      const pattern = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g;
-      let match;
-      while ((match = pattern.exec(text)) !== null) {
-        matches.push({
-          text: match[0],
-          confidence: 0.95,
-          start: match.index,
-          end: match.index + match[0].length
-        });
-      }
-      console.log(`EMAIL detector: input="${text}" matches=${matches.length}`);
-      return matches;
+// Real detection logic from core-detect package
+function isLuhnValid(value) {
+  let sum = 0;
+  let shouldDouble = false;
+  for (let i = value.length - 1; i >= 0; i--) {
+    const c = value.charCodeAt(i) - 48;
+    if (c < 0 || c > 9) return false;
+    let digit = c;
+    if (shouldDouble) {
+      digit *= 2;
+      if (digit > 9) digit -= 9;
     }
-  },
-  PHONE: {
-    detect: (text) => {
-      const matches = [];
-      // Create new regex instance each time to avoid global state issues
-      const pattern = /(\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})/g;
-      let match;
-      while ((match = pattern.exec(text)) !== null) {
-        matches.push({
-          text: match[0],
-          confidence: 0.88,
-          start: match.index,
-          end: match.index + match[0].length
-        });
-      }
-      console.log(`PHONE detector: input="${text}" matches=${matches.length}`);
-      return matches;
-    }
-  },
-  CREDIT_CARD: {
-    detect: (text) => {
-      const matches = [];
-      // Create new regex instance each time to avoid global state issues
-      const pattern = /\b(?:\d{4}[-.\s]?){3}\d{4}\b/g;
-      let match;
-      while ((match = pattern.exec(text)) !== null) {
-        matches.push({
-          text: match[0],
-          confidence: 0.92,
-          start: match.index,
-          end: match.index + match[0].length
-        });
-      }
-      console.log(`CREDIT_CARD detector: input="${text}" matches=${matches.length}`);
-      return matches;
+    sum += digit;
+    shouldDouble = !shouldDouble;
+  }
+  return sum % 10 === 0;
+}
+
+function detectToken(token) {
+  const raw = token.trim();
+  if (!raw) return null;
+  
+  // Email
+  const emailPattern = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
+  if (emailPattern.test(raw)) {
+    return { kind: 'EMAIL', reason: 'Matches email pattern' };
+  }
+  
+  // Phone number (very permissive, minimum 7 digits)
+  const digitsOnly = raw.replace(/\D/g, '');
+  if (digitsOnly.length >= 7 && /\d{3,}/.test(digitsOnly)) {
+    if (digitsOnly.length >= 10 && digitsOnly.length <= 15) {
+      return { kind: 'PHONE', reason: 'Potential phone number' };
     }
   }
-};
+  
+  // Credit card number (PAN) – 13–19 digits with Luhn valid
+  if (digitsOnly.length >= 13 && digitsOnly.length <= 19 && isLuhnValid(digitsOnly)) {
+    return { kind: 'PAN', reason: 'Luhn valid primary account number' };
+  }
+  
+  return null;
+}
 
 // Initialize the application modules
 async function initializeModules() {
@@ -71,70 +57,94 @@ async function initializeModules() {
     console.log('✓ Core detection functionality available');
     coreDetect = {
       analyzeDocument: async (file, options = {}) => {
-        // Real detection logic for mobile app that matches web behavior
-        console.log('Mobile: Analyzing document', file.name);
+        // Real OCR-based detection logic using Tesseract.js
+        console.log('Mobile: Analyzing document with Tesseract OCR:', file.name);
         
         if (!file.type.startsWith('image/')) {
-          // For PDFs and other files, return empty detections for now
+          // For PDFs, return empty detections for now (could be implemented later)
+          console.log('Mobile: PDF analysis not implemented yet');
           return { detections: [], pages: 1 };
         }
 
         try {
-          // Simulate the same kind of analysis the web app does
-          // This is a demo that generates realistic detections with proper patterns
-          const detections = [];
-          
-          // Simulate OCR text extraction + pattern matching
-          // In reality this would be: OCR text -> extract tokens -> run detectors
-          const simulatedTextContent = [
-            'Contact us at support@cleanshare.com for assistance',
-            'Call our office: (555) 123-4567 during business hours', 
-            'Card number: 4532 1234 5678 9012 expires 12/25',
-            'Email john.doe@company.org about the meeting',
-            'Phone: 1-800-555-0199 for customer service'
-          ];
-          
-          let detectionCounter = 0;
-          
-          // Process each simulated text line
-          simulatedTextContent.forEach((line, lineIndex) => {
-            console.log(`Mobile: Processing line ${lineIndex}: "${line}"`);
-            
-            // Run each detector on this line
-            Object.keys(detectors).forEach(detectorType => {
-              const matches = detectors[detectorType].detect(line);
-              console.log(`Mobile: ${detectorType} detector found ${matches.length} matches in line ${lineIndex}`);
-              
-              matches.forEach(match => {
-                // Create realistic bounding boxes
-                const x = 0.05 + (lineIndex * 0.1) + Math.random() * 0.1;
-                const y = 0.1 + (lineIndex * 0.15) + Math.random() * 0.05;
-                const w = Math.min(0.3, match.text.length * 0.008 + 0.05);
-                const h = 0.025 + Math.random() * 0.01;
-                
-                detections.push({
-                  id: `mobile-detection-${++detectionCounter}`,
-                  kind: detectorType,
-                  text: match.text,
-                  confidence: match.confidence + (Math.random() * 0.1 - 0.05), // Add slight variation
-                  box: { x, y, w, h },
-                  preview: match.text
-                });
-              });
-            });
+          // Convert file to data URL for Tesseract
+          const dataURL = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(file);
           });
           
-          console.log('Mobile: Total detections before filtering:', detections.length);
+          console.log('Mobile: Running Tesseract OCR on image...');
           
-          // Temporarily disable random filtering to debug
-          // const finalDetections = detections.filter(() => Math.random() > 0.15); // 85% detection rate
-          const finalDetections = detections; // Keep all detections for debugging
+          // Run Tesseract OCR
+          const result = await Tesseract.recognize(dataURL, 'eng', {
+            logger: m => {
+              if (m.status === 'recognizing text') {
+                console.log(`Mobile: OCR progress: ${Math.round(m.progress * 100)}%`);
+              }
+            }
+          });
           
-          console.log('Mobile: Final detections:', finalDetections.length, finalDetections);
-          return { detections: finalDetections, pages: 1 };
+          const { words } = result.data;
+          console.log(`Mobile: Tesseract found ${words.length} words`);
+          
+          const detections = [];
+          
+          // Get image dimensions for coordinate normalization
+          const img = new Image();
+          await new Promise(resolve => {
+            img.onload = resolve;
+            img.src = dataURL;
+          });
+          const width = img.width;
+          const height = img.height;
+          
+          console.log(`Mobile: Image dimensions: ${width}x${height}`);
+          
+          // Process each word from OCR
+          for (const word of words) {
+            const text = (word.text || '').trim();
+            if (!text) continue;
+            
+            // Run the real detectToken function
+            const match = detectToken(text);
+            if (match) {
+              const { kind, reason } = match;
+              const bbox = word.bbox;
+              
+              // Calculate normalized bounding box coordinates
+              const x0 = bbox.x0 || 0;
+              const y0 = bbox.y0 || 0; 
+              const x1 = bbox.x1 || 0;
+              const y1 = bbox.y1 || 0;
+              
+              const box = {
+                x: x0 / width,
+                y: y0 / height,
+                w: (x1 - x0) / width,
+                h: (y1 - y0) / height,
+                page: 0
+              };
+              
+              detections.push({
+                id: `mobile-ocr-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                kind: kind,
+                box: box,
+                confidence: word.confidence || 0.9,
+                reason: reason,
+                preview: text
+              });
+              
+              console.log(`Mobile: Detected ${kind}: "${text}" (confidence: ${word.confidence})`);
+            }
+          }
+          
+          console.log(`Mobile: Found ${detections.length} sensitive detections using real OCR`);
+          return { detections, pages: 1 };
           
         } catch (error) {
-          console.error('Mobile analysis failed:', error);
+          console.error('Mobile OCR analysis failed:', error);
           return { detections: [], pages: 1 };
         }
       },
