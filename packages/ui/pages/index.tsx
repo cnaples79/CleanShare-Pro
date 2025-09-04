@@ -7,7 +7,7 @@ import type {
   Preset,
   DetectionKind
 } from '@cleanshare/core-detect';
-import { analyzeDocument, applyRedactions, listPresets, savePreset, deletePreset, getSupportedExtensions, getFileType, isSupportedFile } from '@cleanshare/core-detect';
+import { analyzeDocument, applyRedactions, listPresets, savePreset, deletePreset } from '@cleanshare/core-detect';
 
 interface FileState {
   file: File;
@@ -320,7 +320,7 @@ export default function CleanSharePro() {
               <input
                 id="file-input"
                 type="file"
-                accept={getSupportedExtensions()}
+                accept="image/*,application/pdf,.webp,.heic,.tiff,.docx,.xlsx"
                 multiple
                 onChange={handleFileChange}
                 style={{ display: 'none' }}
