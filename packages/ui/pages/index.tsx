@@ -369,7 +369,7 @@ export default function CleanSharePro() {
                                 />
                                 <div>
                                   <div style={{ fontWeight: '600', fontSize: 'var(--font-size-sm)' }}>
-                                    {detection.kind}: {detection.text}
+                                    {detection.kind}: {detection.preview || 'N/A'}
                                   </div>
                                   <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
                                     Confidence: {Math.round(detection.confidence * 100)}%
