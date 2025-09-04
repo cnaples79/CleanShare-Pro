@@ -84,6 +84,8 @@ console.log('   • Upload the same test PDF file');
 console.log('   • Verify detection of: EMAIL, PHONE, SSN, PAN');
 console.log('   • Check console logs for "Mobile: Analyzing PDF with pdfjs-dist"');
 console.log('   • Should NO LONGER see "PDF analysis not implemented yet"');
+console.log('   • PDF redaction should create proper .pdf files (not .txt)');
+console.log('   • Downloaded file should be a valid PDF with black redaction boxes');
 console.log('');
 
 console.log('3. 🔄 Cross-Platform Comparison:');

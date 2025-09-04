@@ -128,6 +128,99 @@ async function analyzePdfWithPdfjs(file) {
   }
 }
 
+// PDF redaction using pdf-lib
+async function applyPdfRedactions(file, actions, options) {
+  try {
+    console.log('Mobile: Starting PDF redaction process');
+    
+    // Check if PDFLib is available
+    if (typeof PDFLib === 'undefined') {
+      console.warn('Mobile: pdf-lib not available, falling back to text summary');
+      throw new Error('pdf-lib not available');
+    }
+
+    // Get the file as array buffer
+    const arrayBuffer = await file.arrayBuffer();
+    
+    // Load the PDF with pdf-lib
+    const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
+    const pages = pdfDoc.getPages();
+    
+    console.log(`Mobile: Processing ${pages.length} pages for redaction`);
+    
+    // Get detections from options
+    const detections = options?.detections || [];
+    const detectionMap = new Map();
+    detections.forEach(det => detectionMap.set(det.id, det));
+    
+    console.log('Mobile: Processing', actions.length, 'redactions with', detections.length, 'detections');
+    
+    // Apply redactions to each page
+    for (const action of actions) {
+      const detection = detectionMap.get(action.detectionId);
+      if (!detection || !detection.box) {
+        console.warn('Mobile: No detection found for action', action.detectionId);
+        continue;
+      }
+      
+      const pageIndex = detection.box.page || 0;
+      if (pageIndex >= pages.length) {
+        console.warn('Mobile: Page index out of range:', pageIndex);
+        continue;
+      }
+      
+      const page = pages[pageIndex];
+      const { width, height } = page.getSize();
+      
+      // Calculate absolute coordinates from normalized values
+      const x = detection.box.x * width;
+      const y = height - (detection.box.y + detection.box.h) * height; // PDF coordinates are bottom-up
+      const w = detection.box.w * width;
+      const h = detection.box.h * height;
+      
+      console.log(`Mobile: Drawing redaction box at (${x.toFixed(1)}, ${y.toFixed(1)}, ${w.toFixed(1)}, ${h.toFixed(1)}) on page ${pageIndex + 1}`);
+      
+      // Draw redaction rectangle
+      const color = PDFLib.rgb(0, 0, 0); // Black redaction box
+      page.drawRectangle({
+        x: x,
+        y: y,
+        width: w,
+        height: h,
+        color: color
+      });
+      
+      // Add label if specified
+      if (action.style === 'LABEL') {
+        const fontSize = Math.min(h * 0.6, 12); // Adjust font size to fit
+        if (fontSize > 6) { // Only add text if it's large enough to read
+          page.drawText('[REDACTED]', {
+            x: x + w / 2 - 25, // Rough center alignment
+            y: y + h / 2 - fontSize / 2,
+            size: fontSize,
+            color: PDFLib.rgb(1, 1, 1) // White text
+          });
+        }
+      }
+    }
+    
+    // Serialize the PDF
+    const pdfBytes = await pdfDoc.save();
+    
+    console.log('Mobile: PDF redaction completed, size:', pdfBytes.byteLength, 'bytes');
+    
+    return {
+      data: new Uint8Array(pdfBytes),
+      filename: `sanitized_${file.name}`,
+      metadata: { processed: true, actionsApplied: actions.length }
+    };
+    
+  } catch (error) {
+    console.error('Mobile: PDF redaction failed:', error);
+    throw error;
+  }
+}
+
 // Initialize the application modules
 async function initializeModules() {
   try {
@@ -324,8 +417,12 @@ async function initializeModules() {
             
             img.src = URL.createObjectURL(file);
           });
+        } else if (file && file.type === 'application/pdf') {
+          // For PDFs, use pdf-lib for proper redaction
+          console.log('Mobile: Applying PDF redactions with pdf-lib');
+          return await applyPdfRedactions(file, actions, options);
         } else {
-          // For PDFs and other files, create a text summary
+          // For other files, create a text summary
           const demoContent = `CleanShare Pro - Sanitized Document
 
 This is a demonstration of the CleanShare Pro sanitization process.

@@ -10,6 +10,7 @@
   <!-- Capacitor -->
   <script type="module" src="/capacitor.js"></script>
   <script src="https://unpkg.com/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
   <script type="module">
     // Import PDF.js as ES module and expose globally
     import * as pdfjs from 'https://unpkg.com/pdfjs-dist@5.4.149/build/pdf.min.mjs';
@@ -21,6 +22,7 @@
     window.pdfjsLib = pdfjs;
     
     console.log('Mobile: PDF.js loaded successfully', pdfjs.version);
+    console.log('Mobile: pdf-lib loaded successfully', typeof PDFLib !== 'undefined');
   </script>
   <script type="module" src="/main.js"></script>
 
