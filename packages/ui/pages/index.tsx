@@ -7,7 +7,7 @@ import type {
   Preset,
   DetectionKind
 } from '@cleanshare/core-detect';
-import { analyzeDocument, applyRedactions, listPresets, savePreset, deletePreset } from '@cleanshare/core-detect';
+import { analyzeDocument, applyRedactions, listPresets, savePreset, deletePreset, getSupportedExtensions, getFileType, isSupportedFile } from '@cleanshare/core-detect';
 
 interface FileState {
   file: File;
@@ -141,7 +141,7 @@ export default function CleanSharePro() {
         }));
 
       const result = await applyRedactions(fileState.file, redactionActions, {
-        style: 'BOX'
+        output: 'image'
       }, fileState.detections);
 
       // Convert data URI to blob for download
@@ -172,6 +172,85 @@ export default function CleanSharePro() {
     link.href = fileState.outputUri;
     link.download = `sanitized_${fileState.file.name}`;
     link.click();
+  };
+
+  const handleBulkSanitize = async () => {
+    const filesToProcess = fileStates
+      .map((state, index) => ({ state, index }))
+      .filter(({ state }) => !state.outputUri && !state.error);
+
+    if (filesToProcess.length === 0) return;
+
+    // Set all eligible files to processing state
+    setFileStates(prev => prev.map((state, index) => {
+      const shouldProcess = filesToProcess.some(({ index: processIndex }) => processIndex === index);
+      return shouldProcess ? { ...state, processing: true } : state;
+    }));
+
+    try {
+      // Process files with limited concurrency
+      const maxConcurrency = 3;
+      for (let i = 0; i < filesToProcess.length; i += maxConcurrency) {
+        const batch = filesToProcess.slice(i, i + maxConcurrency);
+        
+        const promises = batch.map(async ({ state, index: fileIndex }) => {
+          try {
+            // Re-analyze the file to ensure lastResult is set correctly  
+            await analyzeDocument(state.file, { presetId });
+            
+            const redactionActions: RedactionAction[] = state.detections
+              .filter(det => state.selected[det.id])
+              .map(det => ({
+                detectionId: det.id,
+                style: state.actions[det.id]?.style || 'BOX',
+                labelText: state.actions[det.id]?.labelText
+              }));
+
+            const result = await applyRedactions(state.file, redactionActions, {
+              output: 'image'
+            }, state.detections);
+
+            // Convert data URI to blob for download
+            const response = await fetch(result.fileUri);
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+
+            // Update file state with result
+            setFileStates(prev => prev.map((s, i) => 
+              i === fileIndex ? { ...s, outputUri: url, previewUri: result.fileUri, processing: false } : s
+            ));
+
+          } catch (error) {
+            console.error(`Sanitization failed for ${state.file.name}:`, error);
+            setFileStates(prev => prev.map((s, i) => 
+              i === fileIndex ? { ...s, processing: false, error: error instanceof Error ? error.message : 'Unknown error' } : s
+            ));
+          }
+        });
+
+        await Promise.all(promises);
+      }
+    } catch (error) {
+      console.error('Bulk sanitization failed:', error);
+    }
+  };
+
+  const handleBulkDownload = () => {
+    const processedFiles = fileStates.filter(state => state.outputUri);
+    
+    if (processedFiles.length === 0) return;
+
+    // Download each file individually
+    processedFiles.forEach((state, index) => {
+      if (state.outputUri) {
+        setTimeout(() => {
+          const link = document.createElement('a');
+          link.href = state.outputUri!;
+          link.download = `sanitized_${state.file.name}`;
+          link.click();
+        }, index * 100); // Stagger downloads by 100ms
+      }
+    });
   };
 
   const currentFileState = fileStates[currentFileIndex];
@@ -236,12 +315,12 @@ export default function CleanSharePro() {
                 Drop files here or click to browse
               </div>
               <div className="file-upload-subtext">
-                Supports JPG, PNG, PDF files up to 10MB each
+                Supports images (JPG, PNG, WebP, HEIC, TIFF), PDFs, and documents (DOCX, XLSX) up to 10MB each
               </div>
               <input
                 id="file-input"
                 type="file"
-                accept="image/*,application/pdf"
+                accept={getSupportedExtensions()}
                 multiple
                 onChange={handleFileChange}
                 style={{ display: 'none' }}
@@ -263,6 +342,48 @@ export default function CleanSharePro() {
             {/* File List Sidebar */}
             <div className="sidebar" style={{ minWidth: '250px' }}>
               <h3 className="sidebar-title">Files ({fileStates.length})</h3>
+              
+              {/* Bulk Processing Controls */}
+              {fileStates.length > 1 && (
+                <div style={{ 
+                  padding: 'var(--space-md)', 
+                  marginBottom: 'var(--space-md)', 
+                  border: '2px solid var(--color-primary)', 
+                  borderRadius: 'var(--radius-md)', 
+                  background: 'var(--bg-secondary)' 
+                }}>
+                  <h4 style={{ margin: '0 0 var(--space-sm) 0', fontSize: 'var(--font-size-sm)', fontWeight: '600' }}>
+                    🚀 Bulk Processing
+                  </h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-xs)' }}>
+                    <button
+                      onClick={handleBulkSanitize}
+                      className="btn btn-primary btn-sm"
+                      disabled={fileStates.some(s => s.processing) || fileStates.every(s => s.outputUri)}
+                      style={{ width: '100%' }}
+                    >
+                      {fileStates.some(s => s.processing) 
+                        ? 'Processing...' 
+                        : fileStates.every(s => s.outputUri) 
+                          ? 'All Complete' 
+                          : `Sanitize All (${fileStates.filter(s => !s.outputUri && !s.error).length})`
+                      }
+                    </button>
+                    {fileStates.some(s => s.outputUri) && (
+                      <button
+                        onClick={handleBulkDownload}
+                        className="btn btn-secondary btn-sm"
+                        style={{ width: '100%' }}
+                      >
+                        📦 Download All ({fileStates.filter(s => s.outputUri).length})
+                      </button>
+                    )}
+                  </div>
+                  <div style={{ marginTop: 'var(--space-xs)', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+                    Concurrent processing with progress tracking
+                  </div>
+                </div>
+              )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
                 {fileStates.map((state, index) => (
                   <div

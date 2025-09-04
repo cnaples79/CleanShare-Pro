@@ -617,9 +617,9 @@ export default function Home() {
                           onChange={e => {
                             const checked = e.target.checked;
                             setEditingPreset(prev => {
-                              const enabled = new Set(prev.enabledKinds);
+                              const enabled = new Set(prev?.enabledKinds || []);
                               if (checked) enabled.add(kind); else enabled.delete(kind);
-                              return { ...prev, enabledKinds: Array.from(enabled) } as any;
+                              return { ...prev!, enabledKinds: Array.from(enabled) } as any;
                             });
                           }}
                           style={{ marginRight: '0.5rem' }}
@@ -633,9 +633,9 @@ export default function Home() {
                           onChange={e => {
                             const style = e.target.value as RedactionStyle;
                             setEditingPreset(prev => {
-                              const newMap = { ...(prev.styleMap || {}) } as any;
+                              const newMap = { ...(prev?.styleMap || {}) } as any;
                               newMap[kind] = style;
-                              return { ...prev, styleMap: newMap } as any;
+                              return { ...prev!, styleMap: newMap } as any;
                             });
                           }}
                           style={{ marginLeft: '0.5rem' }}

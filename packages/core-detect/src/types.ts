@@ -7,7 +7,7 @@ export interface InputFile {
   /**
    * The MIME type of the file, e.g. `image/png` or `application/pdf`.
    */
-  type: 'image' | 'pdf';
+  type: 'image' | 'pdf' | 'heic' | 'webp' | 'tiff' | 'document';
   /**
    * Optional name for the file.
    */
@@ -181,4 +181,72 @@ export interface ApplyResult {
   fileUri: string;
   /** Optional report with details about redactions */
   report?: any;
+}
+
+export interface BulkProcessingOptions {
+  /** Maximum number of files to process concurrently */
+  maxConcurrency?: number;
+  /** Callback for progress updates */
+  onProgress?: (processed: number, total: number, currentFile: string) => void;
+  /** Callback for individual file completion */
+  onFileComplete?: (file: InputFile, result: ApplyResult | null, error?: Error) => void;
+  /** Stop processing on first error */
+  stopOnError?: boolean;
+  /** Common analyze options to apply to all files */
+  analyzeOptions?: AnalyzeOptions;
+  /** Common apply options to apply to all files */
+  applyOptions?: ApplyOptions;
+}
+
+export interface BulkProcessingResult {
+  /** Number of files successfully processed */
+  successful: number;
+  /** Number of files that failed processing */
+  failed: number;
+  /** Total number of files processed */
+  total: number;
+  /** Results for each file (null if failed) */
+  results: (ApplyResult | null)[];
+  /** Errors encountered during processing */
+  errors: (Error | null)[];
+  /** Processing time in milliseconds */
+  duration: number;
+}
+
+export interface DocumentConversionOptions {
+  /** Target format for document conversion */
+  targetFormat: 'pdf';
+  /** Quality settings for conversion */
+  quality?: number;
+  /** Page layout options */
+  layout?: {
+    pageSize?: 'A4' | 'Letter' | 'Legal';
+    orientation?: 'portrait' | 'landscape';
+    margins?: { top: number; right: number; bottom: number; left: number };
+  };
+  /** Whether to preserve original formatting */
+  preserveFormatting?: boolean;
+}
+
+export interface SupportedFileTypes {
+  /** Image formats and their MIME types */
+  images: {
+    'image/jpeg': string[];
+    'image/png': string[];
+    'image/webp': string[];
+    'image/tiff': string[];
+    'image/heic': string[];
+    'image/heif': string[];
+  };
+  /** PDF formats */
+  pdf: {
+    'application/pdf': string[];
+  };
+  /** Document formats */
+  documents: {
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': string[];
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': string[];
+    'application/vnd.ms-excel': string[];
+    'text/csv': string[];
+  };
 }
