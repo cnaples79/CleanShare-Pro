@@ -49,6 +49,85 @@ function detectToken(token) {
   return null;
 }
 
+// PDF analysis using pdfjs-dist
+async function analyzePdfWithPdfjs(file) {
+  try {
+    // Check if pdfjsLib is available
+    if (typeof pdfjsLib === 'undefined') {
+      console.warn('Mobile: pdfjs-dist not available, falling back to empty result');
+      return { detections: [], pages: 1 };
+    }
+
+    // Convert file to array buffer
+    const arrayBuffer = await file.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+
+    console.log('Mobile: Loading PDF with pdfjs-dist...');
+    
+    // Load PDF document
+    const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
+    const pdf = await loadingTask.promise;
+    
+    console.log(`Mobile: PDF loaded, ${pdf.numPages} pages`);
+    
+    const detections = [];
+    
+    // Process each page
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const textContent = await page.getTextContent();
+      const viewport = page.getViewport({ scale: 1.0 });
+      
+      console.log(`Mobile: Processing page ${pageNum}, found ${textContent.items.length} text items`);
+      
+      // Extract text items with positions
+      for (const item of textContent.items) {
+        if (!item.str || !item.str.trim()) continue;
+        
+        const text = item.str.trim();
+        const match = detectToken(text);
+        
+        if (match) {
+          const { kind, reason } = match;
+          
+          // Calculate normalized bounding box
+          const transform = item.transform;
+          const x = transform[4];
+          const y = transform[5];
+          const width = item.width || 50; // fallback width
+          const height = item.height || 12; // fallback height
+          
+          const box = {
+            x: x / viewport.width,
+            y: 1 - ((y + height) / viewport.height), // PDF coordinates are bottom-up
+            w: width / viewport.width,
+            h: height / viewport.height,
+            page: pageNum - 1
+          };
+          
+          detections.push({
+            id: `mobile-pdf-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            kind: kind,
+            box: box,
+            confidence: 0.9,
+            reason: reason,
+            preview: text
+          });
+          
+          console.log(`Mobile: Detected ${kind}: "${text}" on page ${pageNum}`);
+        }
+      }
+    }
+    
+    console.log(`Mobile: PDF analysis complete, found ${detections.length} sensitive detections`);
+    return { detections, pages: pdf.numPages };
+    
+  } catch (error) {
+    console.error('Mobile: PDF analysis failed:', error);
+    return { detections: [], pages: 1 };
+  }
+}
+
 // Initialize the application modules
 async function initializeModules() {
   try {
@@ -61,9 +140,9 @@ async function initializeModules() {
         console.log('Mobile: Analyzing document with Tesseract OCR:', file.name);
         
         if (!file.type.startsWith('image/')) {
-          // For PDFs, return empty detections for now (could be implemented later)
-          console.log('Mobile: PDF analysis not implemented yet');
-          return { detections: [], pages: 1 };
+          // For PDFs, use pdfjs-dist for text extraction
+          console.log('Mobile: Analyzing PDF with pdfjs-dist:', file.name);
+          return await analyzePdfWithPdfjs(file);
         }
 
         try {

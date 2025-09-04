@@ -10,6 +10,18 @@
   <!-- Capacitor -->
   <script type="module" src="/capacitor.js"></script>
   <script src="https://unpkg.com/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script type="module">
+    // Import PDF.js as ES module and expose globally
+    import * as pdfjs from 'https://unpkg.com/pdfjs-dist@5.4.149/build/pdf.min.mjs';
+    
+    // Set worker source
+    pdfjs.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@5.4.149/build/pdf.worker.min.mjs';
+    
+    // Expose to global scope
+    window.pdfjsLib = pdfjs;
+    
+    console.log('Mobile: PDF.js loaded successfully', pdfjs.version);
+  </script>
   <script type="module" src="/main.js"></script>
 
   <style>
