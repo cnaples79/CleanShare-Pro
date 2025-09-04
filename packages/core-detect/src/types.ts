@@ -68,7 +68,41 @@ export type RedactionStyle =
   | 'BOX'
   | 'LABEL'
   | 'MASK_LAST4'
+  | 'PATTERN'
+  | 'GRADIENT'
+  | 'SOLID_COLOR'
+  | 'VECTOR_OVERLAY'
   | 'REMOVE_METADATA';
+
+export interface RedactionConfig {
+  /** Primary color for redaction (hex color) */
+  color?: string;
+  /** Secondary color for gradients/patterns (hex color) */
+  secondaryColor?: string;
+  /** Opacity level (0-1) */
+  opacity?: number;
+  /** Pattern type for PATTERN style */
+  patternType?: 'diagonal' | 'dots' | 'cross-hatch' | 'waves' | 'noise';
+  /** Border width in pixels */
+  borderWidth?: number;
+  /** Border color (hex color) */
+  borderColor?: string;
+  /** Corner radius for rounded rectangles */
+  cornerRadius?: number;
+  /** Custom text for LABEL style */
+  labelText?: string;
+  /** Font size for labels */
+  fontSize?: number;
+  /** Font family for labels */
+  fontFamily?: string;
+  /** Shadow configuration */
+  shadow?: {
+    offsetX: number;
+    offsetY: number;
+    blur: number;
+    color: string;
+  };
+}
 
 export interface CustomPattern {
   /** Unique identifier for the pattern */
@@ -107,14 +141,39 @@ export interface AnalyzeResult {
 export interface RedactionAction {
   detectionId: string;
   style: RedactionStyle;
-  /** Only used when style is LABEL */
+  /** Configuration for the redaction style */
+  config?: RedactionConfig;
+  /** Only used when style is LABEL - kept for backward compatibility */
   labelText?: string;
 }
 
+export interface DocumentSanitizationOptions {
+  /** Remove EXIF data from images */
+  removeExif?: boolean;
+  /** Remove PDF metadata (author, creator, etc.) */
+  removeMetadata?: boolean;
+  /** Remove PDF annotations and comments */
+  removeAnnotations?: boolean;
+  /** Remove PDF form fields */
+  removeFormFields?: boolean;
+  /** Remove PDF JavaScript */
+  removeJavaScript?: boolean;
+  /** Remove PDF embedded files */
+  removeEmbeddedFiles?: boolean;
+  /** Flatten PDF layers */
+  flattenLayers?: boolean;
+  /** Remove color profiles */
+  removeColorProfiles?: boolean;
+}
+
 export interface ApplyOptions {
-  output: 'image' | 'pdf';
+  output?: 'image' | 'pdf';
   /** JPEG quality (0–1) for image exports */
   quality?: number;
+  /** Document sanitization options */
+  sanitization?: DocumentSanitizationOptions;
+  /** Use vector-based redaction for PDFs (instead of raster overlay) */
+  useVectorRedaction?: boolean;
 }
 
 export interface ApplyResult {
