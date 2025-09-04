@@ -1,4 +1,4 @@
-import { detectToken } from '../detectors';
+import { detectToken, calculateConfidence, detectTokenWithCustomPatterns } from '../detectors';
 import type { InputFile, AnalyzeOptions, AnalyzeResult, Detection, DetectionKind, Box } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import Tesseract from 'tesseract.js';
@@ -29,7 +29,7 @@ async function fileToDataURL(file: Blob): Promise<string> {
 }
 
 /** Perform OCR on a data URL and return detections. */
-async function analyzeImageDataURL(dataURL: string, pageIndex = 0): Promise<Detection[]> {
+async function analyzeImageDataURL(dataURL: string, pageIndex = 0, opts: AnalyzeOptions = {}): Promise<Detection[]> {
   // Optionally perform a simple document auto‑crop before running OCR.  Many
   // scanned documents contain large white margins.  Cropping to the
   // bounding rectangle of non‑white pixels improves OCR accuracy and
@@ -126,9 +126,9 @@ async function analyzeImageDataURL(dataURL: string, pageIndex = 0): Promise<Dete
   for (const word of words) {
     const text = (word.text || '').trim();
     if (!text) continue;
-    const match = detectToken(text);
+    const match = detectTokenWithCustomPatterns(text, opts.customPatterns);
     if (match) {
-      const { kind, reason } = match;
+      const { kind, reason, confidence: detectionConfidence } = match;
       const bbox = word.bbox as any;
       const x0 = bbox.x0 ?? bbox.left ?? 0;
       const y0 = bbox.y0 ?? bbox.top ?? 0;
@@ -141,11 +141,21 @@ async function analyzeImageDataURL(dataURL: string, pageIndex = 0): Promise<Dete
         h: (y1 - y0) / height,
         page: pageIndex
       };
+      
+      // Use enhanced confidence scoring - prefer detection confidence if provided
+      const ocrConfidence = word.confidence ?? 0.9;
+      const finalConfidence = detectionConfidence ?? calculateConfidence(kind as DetectionKind, text, ocrConfidence);
+      
+      // Apply confidence threshold filter
+      if (opts.confidenceThreshold && finalConfidence < opts.confidenceThreshold) {
+        continue;
+      }
+      
       detections.push({
         id: uuidv4(),
         kind: kind as DetectionKind,
         box,
-        confidence: word.confidence ?? 0.9,
+        confidence: finalConfidence,
         reason,
         preview: text
       });
@@ -234,13 +244,13 @@ export async function analyzeDocument(file: File | Blob, opts: AnalyzeOptions = 
       const renderContext = { canvasContext: context, viewport };
       await page.render(renderContext).promise;
       const dataURL = canvas.toDataURL();
-      const pageDetections = await analyzeImageDataURL(dataURL, i - 1);
+      const pageDetections = await analyzeImageDataURL(dataURL, i - 1, opts);
       detections.push(...pageDetections);
     }
   } else {
     // Assume image
     const dataURL = await fileToDataURL(file as Blob);
-    const imgDetections = await analyzeImageDataURL(dataURL, 0);
+    const imgDetections = await analyzeImageDataURL(dataURL, 0, opts);
     detections.push(...imgDetections);
   }
   // Filter detections by preset if provided

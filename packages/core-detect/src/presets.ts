@@ -16,21 +16,21 @@ export const PRESETS: Preset[] = [
   {
     id: 'developer',
     name: 'Developer Secrets',
-    enabledKinds: ['EMAIL', 'PHONE', 'PAN', 'JWT', 'API_KEY', 'IBAN', 'SSN'],
+    enabledKinds: ['EMAIL', 'PHONE', 'PAN', 'JWT', 'API_KEY', 'IBAN', 'SSN', 'PASSPORT'],
     styleMap: {},
     customRegex: []
   },
   {
     id: 'work',
     name: 'Work Screenshot',
-    enabledKinds: ['EMAIL', 'PHONE', 'PAN', 'JWT', 'API_KEY', 'NAME', 'ADDRESS'],
+    enabledKinds: ['EMAIL', 'PHONE', 'PAN', 'JWT', 'API_KEY', 'NAME', 'ADDRESS', 'PASSPORT'],
     styleMap: {},
     customRegex: []
   },
   {
     id: 'all',
     name: 'All Detectors',
-    enabledKinds: ['FACE','EMAIL','PHONE','PAN','IBAN','SSN','JWT','API_KEY','BARCODE','NAME','ADDRESS','OTHER'],
+    enabledKinds: ['FACE','EMAIL','PHONE','PAN','IBAN','SSN','PASSPORT','JWT','API_KEY','BARCODE','NAME','ADDRESS','OTHER'],
     styleMap: {},
     customRegex: []
   }

@@ -39,6 +39,7 @@ export type DetectionKind =
   | 'PAN'
   | 'IBAN'
   | 'SSN'
+  | 'PASSPORT'
   | 'JWT'
   | 'API_KEY'
   | 'BARCODE'
@@ -69,11 +70,32 @@ export type RedactionStyle =
   | 'MASK_LAST4'
   | 'REMOVE_METADATA';
 
+export interface CustomPattern {
+  /** Unique identifier for the pattern */
+  id: string;
+  /** Human-readable name for the pattern */
+  name: string;
+  /** Regular expression pattern to match */
+  pattern: string;
+  /** Detection kind to assign to matches */
+  kind: DetectionKind;
+  /** Confidence score (0-1) for matches */
+  confidence: number;
+  /** Description of what this pattern detects */
+  description: string;
+  /** Whether the pattern is case-sensitive */
+  caseSensitive?: boolean;
+}
+
 export interface AnalyzeOptions {
   /** Optional preset identifier to use for enabling/disabling detectors */
   presetId?: string;
   /** Allow sending OCR snippets to a remote cloud service for additional analysis */
   useCloudAssist?: boolean;
+  /** Custom detection patterns to apply */
+  customPatterns?: CustomPattern[];
+  /** Minimum confidence threshold (0-1) for including detections */
+  confidenceThreshold?: number;
 }
 
 export interface AnalyzeResult {
