@@ -20,8 +20,8 @@ pnpm dev
 # Access at: http://localhost:3000
 
 # Start mobile app development server
-cd apps/mobile && python3 -m http.server 3002
-# Access at: http://localhost:3002 (Note: Port 3001 may be in use)
+cd apps/mobile/web && python3 -m http.server 8081 --bind 0.0.0.0
+# Access at: http://localhost:8081
 
 # Build all packages (TypeScript compilation) - REQUIRED FIRST
 pnpm --filter @cleanshare/core-detect build
@@ -37,9 +37,10 @@ pnpm --filter @cleanshare/native-bridge build
 
 **Current Status:** 
 - ✅ Web App (localhost:3000): Fully functional with professional UI, OCR detection, sanitization, preview, and download
-- ✅ Mobile App (localhost:3004): Fully functional with real Tesseract.js OCR, detection, sanitization, and download
+- ✅ Mobile App (localhost:8081): Fully functional with complete PDF analysis, Tesseract.js OCR, detection, sanitization, and download
 - ✅ WASM Workers: Implemented with Tesseract.js OCR and PDF processing
 - ✅ Native Bridge: Web fallbacks implemented for all Capacitor plugins
+- ✅ PDF Processing: Complete pdf-lib integration for both platforms with proper redaction
 - ⚠️ Production Build: ARM64 SWC issues prevent static builds (use dev mode)
 - ❌ Tests: Not yet implemented
 - ❌ CLI: Placeholder only
@@ -49,6 +50,8 @@ pnpm --filter @cleanshare/native-bridge build
 - ✅ Web App: Fixed sanitized document preview rendering
 - ✅ Mobile App: Implemented real Tesseract.js OCR instead of demo logic
 - ✅ Mobile App: Fixed file processing and download functionality
+- ✅ Mobile App: Fixed PDF analysis with pdfjs-dist@5.4.149 ES modules
+- ✅ Mobile App: Fixed PDF redaction using pdf-lib instead of text fallback
 - ✅ Cross-Platform: Both platforms now use identical detection logic and produce consistent results
 
 ## Architecture
@@ -110,35 +113,41 @@ CleanShare Pro is a monorepo for a cross-platform privacy tool that sanitizes im
 
 ## CleanShare Pro Development Plan
 
-### Phase 1: Critical Bug Fixes (CURRENT PRIORITY)
-**Status**: Professional UI ✅ implemented, core functionality 🐛 broken
+### Phase 1: Critical Bug Fixes ✅ COMPLETED
+**Status**: All critical issues resolved, both platforms fully functional
 
-1. **Web App Sanitization Pipeline** 
-   - Debug "call analyzeDocument() first" error in applyRedactions
-   - Investigate lastResult state management in core-detect package
-   - Fix race conditions between file analysis and redaction application
-   - Ensure proper detection ID mapping for redaction actions
+1. **Web App Sanitization Pipeline** ✅
+   - Fixed "call analyzeDocument() first" error in applyRedactions
+   - Resolved lastResult state management in core-detect package
+   - Fixed race conditions between file analysis and redaction application
+   - Ensured proper detection ID mapping for redaction actions
 
-2. **Web App Preview System**
-   - Debug why previewUri is not displaying sanitized images
-   - Verify data URI to blob conversion in handleSanitize
-   - Check image loading and rendering in preview component
-   - Test both image and PDF preview functionality
+2. **Web App Preview System** ✅
+   - Fixed previewUri display of sanitized images
+   - Verified data URI to blob conversion in handleSanitize
+   - Fixed image loading and rendering in preview component
+   - Both image and PDF preview functionality working
 
-3. **Mobile App File Download**
-   - Fix canvas-to-blob conversion producing 0kb files
-   - Debug async timing issues in image processing
-   - Verify proper MIME type handling for downloads
-   - Test actual image processing with redaction boxes
+3. **Mobile App File Download** ✅
+   - Fixed canvas-to-blob conversion producing 0kb files
+   - Resolved async timing issues in image processing
+   - Fixed proper MIME type handling for downloads
+   - PDF redaction now creates proper .pdf files with pdf-lib
 
-4. **Cross-Platform Consistency**
-   - Ensure both platforms use compatible file processing APIs
-   - Standardize error handling and user feedback
-   - Verify detection results are consistent between platforms
+4. **Mobile App PDF Analysis** ✅
+   - Fixed pdfjs-dist loading with proper ES module imports (v5.4.149)
+   - Implemented complete PDF redaction pipeline using pdf-lib
+   - Fixed coordinate transformation for proper redaction box placement
+   - Mobile PDF processing now matches web app functionality
 
-**Success Criteria**: Users can upload files, see detections, apply redactions, preview results, and download sanitized files on both web and mobile
+5. **Cross-Platform Consistency** ✅
+   - Both platforms use compatible file processing APIs
+   - Standardized error handling and user feedback
+   - Detection results are consistent between platforms
 
-### Phase 2: Core Feature Completion
+**Success Criteria ACHIEVED**: Users can upload files, see detections, apply redactions, preview results, and download sanitized files on both web and mobile ✅
+
+### Phase 2: Core Feature Completion (CURRENT PRIORITY)
 **Goal**: Full-featured privacy tool with reliable processing
 
 1. **Enhanced Detection Pipeline**
@@ -266,6 +275,9 @@ CleanShare Pro is a monorepo for a cross-platform privacy tool that sanitizes im
 - ✅ **Web App Preview**: Fixed sanitized document preview rendering  
 - ✅ **Mobile App Downloads**: Fixed canvas-to-blob conversion and file generation
 - ✅ **Mobile App Detection**: Implemented real Tesseract.js OCR analysis
+- ✅ **Mobile App PDF Analysis**: Fixed pdfjs-dist@5.4.149 ES module loading
+- ✅ **Mobile App PDF Redaction**: Implemented pdf-lib redaction instead of text fallback
+- ✅ **Mobile Server Setup**: Fixed directory serving from apps/mobile/web
 
 **Remaining Platform/Build Issues:**
 - **SWC Compilation**: ARM64/Android builds fail due to missing @next/swc-android-arm64 package
@@ -277,9 +289,11 @@ CleanShare Pro is a monorepo for a cross-platform privacy tool that sanitizes im
 **Development Notes:**
 - Both web and mobile apps have professional UI implemented and working file upload
 - File analysis (detection) works on both platforms with proper UI feedback
-- Core issue appears to be in the sanitization/redaction pipeline and file output generation
-- Mobile app produces visual redactions on canvas but fails to create downloadable files
-- Web app has race condition or state management issue with analysis results
+- Sanitization/redaction pipeline fully functional on both platforms
+- Mobile app now produces proper downloadable files with correct redaction
+- All race conditions and state management issues have been resolved
+- PDF processing uses pdf-lib@1.17.1 with proper coordinate transformation
+- Mobile app serves from apps/mobile/web directory on port 8081
 
 ## Workspace Configuration
 

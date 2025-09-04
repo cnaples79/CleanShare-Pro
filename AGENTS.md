@@ -31,6 +31,27 @@
 - Files: `kebab-case.ts` for libs; `PascalCase.tsx` for React components; route files under `packages/ui/pages/` follow Next.js conventions.
 - No repo-wide ESLint/Prettier yet—if adding, match current formatting and 2‑space indent.
 
+## Web & Mobile Deployment
+- Current readiness: Web UI is exportable; Capacitor shell exists. Native plugin code is stubbed; heavy OCR/PDF work runs on main thread.
+- Gaps to stores: Implement native plugins (Share‑In, Vision/OCR, PDF tools), add store assets/permissions, and ensure pdf.js worker is bundled from `public/` via `GlobalWorkerOptions.workerSrc`.
+- Architecture improvements:
+  - Platform adapters: inject OCR/Barcode/PDF via web workers (web) or Capacitor (mobile) instead of using DOM APIs in core.
+  - Workers by default: route Tesseract/pdf.js through `packages/wasm` Comlink workers to avoid UI blocking.
+  - PDF safety: prefer rasterized PDF rebuild to remove live text and hidden content.
+  - Explicit APIs: remove global state in redaction; pass detections directly.
+  - Packaging: add `public/pdf.worker.min.js`, lazy‑load heavy deps, and use static export for the UI.
+- Build/release flow:
+  - Web: `pnpm --filter @cleanshare/ui build && pnpm --filter @cleanshare/ui exec next export -o out` (deploy `packages/ui/out/`).
+  - Mobile: `pnpm --filter @cleanshare/ui exec next export -o ../../apps/mobile/web && (cd apps/mobile && npx cap sync)` then build in Xcode/Android Studio.
+- CI suggestions: `pnpm -r build`, run tests across packages, cache pnpm store, and publish web artifacts; optionally attach mobile build artifacts.
+
+## Next Steps (Plan)
+- Add platform adapters and wire UI to select web/native.
+- Workerize OCR/PDF paths using `packages/wasm`.
+- Switch to rasterized PDF redaction and add verification.
+- Make redaction API explicit (no shared state).
+- Add export/sync scripts and extend CI for web/mobile pipelines.
+
 ## Testing Guidelines
 - Tests not yet defined; add per package using `*.test.ts` co-located under `src/` or `src/__tests__/`.
 - Mock heavy deps (e.g., `tesseract.js`, `pdfjs-dist`) in unit tests.
