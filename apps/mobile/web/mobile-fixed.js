@@ -57,6 +57,19 @@ async function performOcrWithTesseract(file) {
       return [];
     }
 
+    // Get actual image dimensions by loading the image
+    const imageInfo = await new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        resolve({ width: img.width, height: img.height });
+        URL.revokeObjectURL(img.src);
+      };
+      img.onerror = reject;
+      img.src = URL.createObjectURL(file);
+    });
+    
+    console.log(`Mobile: Actual image dimensions: ${imageInfo.width}x${imageInfo.height}`);
+
     const worker = await Tesseract.createWorker();
     console.log('Mobile: Tesseract worker created');
 
@@ -74,10 +87,10 @@ async function performOcrWithTesseract(file) {
     console.log('Mobile: Available data properties:', Object.keys(data));
     console.log(`Mobile: Image dimensions from Tesseract - width: ${data.width}, height: ${data.height}`);
     
-    // Check if dimensions are available in different locations
-    const imageWidth = data.width || data.image?.width || data.imageWidth;
-    const imageHeight = data.height || data.image?.height || data.imageHeight;
-    console.log(`Mobile: Resolved image dimensions - width: ${imageWidth}, height: ${imageHeight}`);
+    // Use actual image dimensions instead of relying on Tesseract data
+    const imageWidth = imageInfo.width;
+    const imageHeight = imageInfo.height;
+    console.log(`Mobile: Using actual image dimensions - width: ${imageWidth}, height: ${imageHeight}`);
     
     if (data.words) {
       console.log(`Mobile: Processing ${data.words.length} words from Tesseract`);
