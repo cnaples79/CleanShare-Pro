@@ -6,21 +6,14 @@ console.log('=== Mobile App Full Script Loading ===');
 console.log('React available at script load:', typeof React !== 'undefined');
 console.log('ReactDOM available at script load:', typeof ReactDOM !== 'undefined');
 
-// Mobile React components using ES6 modules - will be available when React loads
-let useState, useEffect, useCallback, useRef;
-
-function initializeReactHooks() {
-  if (typeof React !== 'undefined') {
-    ({ useState, useEffect, useCallback, useRef } = React);
-    console.log('React hooks initialized');
-  }
-}
+// Mobile React components using ES6 modules - access React hooks directly
+// Since React.createElement works, we can access hooks directly from React object
 
 // Import mobile-optimized hooks for undo/redo
 function useUndoRedoMobile(initialState, options = {}) {
   const { maxHistorySize = 50, debounceMs = 300 } = options;
   
-  const [state, setState] = useState({
+  const [state, setState] = React.React.useState({
     current: initialState,
     history: [],
     currentIndex: -1,
@@ -28,7 +21,7 @@ function useUndoRedoMobile(initialState, options = {}) {
     canRedo: false
   });
   
-  const execute = useCallback((type, description, undoFn, redoFn) => {
+  const execute = React.React.useCallback((type, description, undoFn, redoFn) => {
     const action = {
       type,
       description,
@@ -57,7 +50,7 @@ function useUndoRedoMobile(initialState, options = {}) {
     return newCurrent;
   }, [state, maxHistorySize]);
 
-  const undo = useCallback(() => {
+  const undo = React.React.useCallback(() => {
     if (state.canUndo && state.currentIndex >= 0) {
       const action = state.history[state.currentIndex];
       const newCurrent = action.undo();
@@ -76,7 +69,7 @@ function useUndoRedoMobile(initialState, options = {}) {
     return state.current;
   }, [state]);
 
-  const redo = useCallback(() => {
+  const redo = React.useCallback(() => {
     if (state.canRedo && state.currentIndex < state.history.length - 1) {
       const nextIndex = state.currentIndex + 1;
       const action = state.history[nextIndex];
@@ -95,7 +88,7 @@ function useUndoRedoMobile(initialState, options = {}) {
     return state.current;
   }, [state]);
 
-  const getHistoryPreview = useCallback((maxItems = 10) => {
+  const getHistoryPreview = React.useCallback((maxItems = 10) => {
     const items = [];
     const start = Math.max(0, state.currentIndex - maxItems + 1);
     
@@ -129,9 +122,9 @@ function useUndoRedoMobile(initialState, options = {}) {
 
 // Mobile Preset Manager Component
 function MobilePresetManager({ isOpen, onClose, currentPresetId, onPresetSelect, presets = [] }) {
-  const [selectedTab, setSelectedTab] = useState('browse');
-  const [editingPreset, setEditingPreset] = useState(null);
-  const [importText, setImportText] = useState('');
+  const [selectedTab, setSelectedTab] = React.useState('browse');
+  const [editingPreset, setEditingPreset] = React.useState(null);
+  const [importText, setImportText] = React.useState('');
 
   if (!isOpen) return null;
 
@@ -338,8 +331,8 @@ function MobilePresetManager({ isOpen, onClose, currentPresetId, onPresetSelect,
 
 // Mobile Preset Editor Component
 function MobilePresetEditor({ preset, onSave, onCancel }) {
-  const [activeSection, setActiveSection] = useState('basic');
-  const [formData, setFormData] = useState(preset);
+  const [activeSection, setActiveSection] = React.useState('basic');
+  const [formData, setFormData] = React.useState(preset);
 
   const DETECTION_KINDS = [
     'FACE', 'EMAIL', 'PHONE', 'PAN', 'IBAN', 'SSN', 'PASSPORT',
@@ -484,10 +477,10 @@ function MobilePresetEditor({ preset, onSave, onCancel }) {
 
 // Mobile History Dashboard Component
 function MobileHistoryDashboard({ isOpen, onClose }) {
-  const [selectedTab, setSelectedTab] = useState('overview');
-  const [stats, setStats] = useState(null);
+  const [selectedTab, setSelectedTab] = React.useState('overview');
+  const [stats, setStats] = React.useState(null);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (isOpen) {
       // Load history data from localStorage or API
       try {
@@ -895,20 +888,20 @@ function MobileKeyboardHelp({ isOpen, onClose }) {
 // Main Mobile App Component
 function MobileCleanSharePro() {
   // State management
-  const [files, setFiles] = useState([]);
-  const [fileStates, setFileStates] = useState([]);
-  const [currentFileIndex, setCurrentFileIndex] = useState(0);
-  const [presets] = useState([
+  const [files, setFiles] = React.useState([]);
+  const [fileStates, setFileStates] = React.useState([]);
+  const [currentFileIndex, setCurrentFileIndex] = React.useState(0);
+  const [presets] = React.useState([
     { id: 'mobile-basic', name: 'Mobile Basic', description: 'Essential detections for mobile', enabledKinds: ['EMAIL', 'PHONE'] },
     { id: 'mobile-enhanced', name: 'Mobile Enhanced', description: 'Enhanced security for mobile', enabledKinds: ['EMAIL', 'PHONE', 'PAN', 'SSN'] }
   ]);
-  const [presetId, setPresetId] = useState('mobile-basic');
-  const [loading, setLoading] = useState(false);
+  const [presetId, setPresetId] = React.useState('mobile-basic');
+  const [loading, setLoading] = React.useState(false);
   
   // Modal states
-  const [showPresetManager, setShowPresetManager] = useState(false);
-  const [showHistoryDashboard, setShowHistoryDashboard] = useState(false);
-  const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
+  const [showPresetManager, setShowPresetManager] = React.useState(false);
+  const [showHistoryDashboard, setShowHistoryDashboard] = React.useState(false);
+  const [showKeyboardHelp, setShowKeyboardHelp] = React.useState(false);
   
   // Undo/Redo system
   const undoRedoSystem = useUndoRedoMobile([], { maxHistorySize: 50 });
@@ -1406,6 +1399,53 @@ function MobileCleanSharePro() {
   ]);
 }
 
+// Error Boundary for better error debugging
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('React Error Boundary caught an error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return React.createElement('div', {
+        className: 'mobile-header',
+        style: { padding: 'var(--space-lg)', textAlign: 'center' }
+      }, [
+        React.createElement('h1', { key: 'title' }, '⚠️ App Error'),
+        React.createElement('p', { key: 'message' }, 'Something went wrong with the React app.'),
+        React.createElement('pre', { 
+          key: 'error',
+          style: { 
+            fontSize: 'var(--font-size-xs)', 
+            color: 'var(--color-error)',
+            background: 'var(--bg-secondary)',
+            padding: 'var(--space-md)',
+            borderRadius: 'var(--radius-md)',
+            overflow: 'auto',
+            textAlign: 'left'
+          }
+        }, this.state.error ? this.state.error.toString() : 'Unknown error'),
+        React.createElement('button', {
+          key: 'reload',
+          onClick: () => location.reload(),
+          className: 'btn btn-primary'
+        }, '🔄 Reload')
+      ]);
+    }
+
+    return this.props.children;
+  }
+}
+
 // Wait for React to be available before initializing
 function waitForReact() {
   return new Promise((resolve) => {
@@ -1443,12 +1483,18 @@ async function initializeMobileApp() {
     await waitForReact();
     console.log('React confirmed available, proceeding with full mobile app...');
     
-    // Initialize React hooks now that React is available
-    initializeReactHooks();
+    // React hooks are now accessed directly from React object
     
-    // Clear existing content and render React app
+    // Clear existing content and render React app using React 18 createRoot
     appContainer.innerHTML = '';
-    ReactDOM.render(React.createElement(MobileCleanSharePro), appContainer);
+    const root = ReactDOM.createRoot(appContainer);
+    
+    // Wrap in error boundary for better debugging
+    const AppWithErrorBoundary = React.createElement(ErrorBoundary, {}, 
+      React.createElement(MobileCleanSharePro)
+    );
+    
+    root.render(AppWithErrorBoundary);
     console.log('✅ Mobile React app with Phase 2.4 features initialized successfully');
     return true;
   } catch (error) {
