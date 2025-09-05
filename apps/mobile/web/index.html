@@ -39,7 +39,7 @@
     console.log('Mobile: pdf-lib loaded successfully', typeof PDFLib !== 'undefined');
   </script>
   <script type="module" src="/main.js"></script>
-  <script src="/mobile-app.js"></script>
+  <script src="/mobile-fixed.js"></script>
 
   <style>
     /* Modern Mobile Design System for CleanShare Pro */
@@ -678,24 +678,19 @@
         return;
       }
 
-      // Try full React version with Phase 2.4 features
-      if (typeof React !== 'undefined' && typeof ReactDOM !== 'undefined' && window.MobileCleanSharePro) {
-        console.log('Mobile: Attempting full React-based initialization with Phase 2.4 features...');
+      // Try fixed mobile app with proper React component handling
+      if (typeof React !== 'undefined' && typeof ReactDOM !== 'undefined' && window.FixedMobileApp) {
+        console.log('Mobile: Attempting fixed mobile app...');
         try {
-          window.MobileCleanSharePro.initializeMobileApp().then(success => {
-            if (success) {
-              console.log('Mobile: Full React initialization successful');
-            } else {
-              console.log('Mobile: Full React initialization returned false, using fallback');
-              initializeFallback();
-            }
-          }).catch(error => {
-            console.warn('Mobile: Full React initialization failed, falling back to vanilla:', error);
-            initializeFallback();
-          });
-          return; // Exit early, async initialization in progress
+          const success = window.FixedMobileApp.initFixedMobileApp();
+          if (success) {
+            console.log('Mobile: Fixed mobile app successful!');
+            return; // Success, exit early
+          } else {
+            console.log('Mobile: Fixed mobile app failed, using fallback');
+          }
         } catch (error) {
-          console.warn('Mobile: Full React initialization threw error, falling back to vanilla:', error);
+          console.warn('Mobile: Fixed mobile app threw error:', error);
         }
       }
 

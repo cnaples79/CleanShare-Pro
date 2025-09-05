@@ -6,14 +6,36 @@ console.log('=== Mobile App Full Script Loading ===');
 console.log('React available at script load:', typeof React !== 'undefined');
 console.log('ReactDOM available at script load:', typeof ReactDOM !== 'undefined');
 
+// Catch any errors during script loading
+window.addEventListener('error', (e) => {
+  console.error('Script error:', e.error, e.filename, e.lineno, e.colno);
+});
+
+// Catch React errors specifically
+if (typeof React !== 'undefined') {
+  console.log('React version:', React.version);
+} else {
+  console.log('React will be loaded later...');
+}
+
 // Mobile React components using ES6 modules - access React hooks directly
-// Since React.createElement works, we can access hooks directly from React object
+// Since createElement works, we can access hooks directly from React object
+
+// Helper function to properly handle createElement with children arrays
+function createElement(type, props, ...children) {
+  // Flatten children arrays since createElement expects individual arguments
+  const flatChildren = children.flat().filter(child => child != null);
+  return createElement(type, props, ...flatChildren);
+}
 
 // Import mobile-optimized hooks for undo/redo
 function useUndoRedoMobile(initialState, options = {}) {
+  if (typeof React === 'undefined' || typeof React.useState === 'undefined') {
+    throw new Error('React hooks not available - make sure React is loaded');
+  }
   const { maxHistorySize = 50, debounceMs = 300 } = options;
   
-  const [state, setState] = React.React.useState({
+  const [state, setState] = React.useState({
     current: initialState,
     history: [],
     currentIndex: -1,
@@ -21,7 +43,7 @@ function useUndoRedoMobile(initialState, options = {}) {
     canRedo: false
   });
   
-  const execute = React.React.useCallback((type, description, undoFn, redoFn) => {
+  const execute = React.useCallback((type, description, undoFn, redoFn) => {
     const action = {
       type,
       description,
@@ -50,7 +72,7 @@ function useUndoRedoMobile(initialState, options = {}) {
     return newCurrent;
   }, [state, maxHistorySize]);
 
-  const undo = React.React.useCallback(() => {
+  const undo = React.useCallback(() => {
     if (state.canUndo && state.currentIndex >= 0) {
       const action = state.history[state.currentIndex];
       const newCurrent = action.undo();
@@ -143,7 +165,7 @@ function MobilePresetManager({ isOpen, onClose, currentPresetId, onPresetSelect,
     setSelectedTab('edit');
   };
 
-  return React.createElement('div', {
+  return createElement('div', {
     style: {
       position: 'fixed',
       top: 0,
@@ -154,7 +176,7 @@ function MobilePresetManager({ isOpen, onClose, currentPresetId, onPresetSelect,
       zIndex: 1000,
       padding: 'var(--space-md)'
     }
-  }, React.createElement('div', {
+  }, createElement('div', {
     className: 'mobile-card',
     style: { 
       height: '90vh', 
@@ -164,22 +186,22 @@ function MobilePresetManager({ isOpen, onClose, currentPresetId, onPresetSelect,
     }
   }, [
     // Header
-    React.createElement('div', {
+    createElement('div', {
       key: 'header',
       className: 'mobile-card-header'
     }, [
-      React.createElement('h3', {
+      createElement('h3', {
         key: 'title',
         className: 'mobile-card-title'
       }, '🎛️ Preset Manager'),
-      React.createElement('p', {
+      createElement('p', {
         key: 'subtitle', 
         className: 'mobile-card-subtitle'
       }, 'Manage detection presets')
     ]),
     
     // Tabs
-    React.createElement('div', {
+    createElement('div', {
       key: 'tabs',
       style: {
         display: 'flex',
@@ -187,7 +209,7 @@ function MobilePresetManager({ isOpen, onClose, currentPresetId, onPresetSelect,
         borderBottom: '1px solid var(--border-light)'
       }
     }, ['browse', 'edit', 'import'].map(tab => 
-      React.createElement('button', {
+      createElement('button', {
         key: tab,
         onClick: () => setSelectedTab(tab),
         className: 'btn btn-ghost btn-sm',
@@ -203,23 +225,23 @@ function MobilePresetManager({ isOpen, onClose, currentPresetId, onPresetSelect,
     )),
     
     // Content
-    React.createElement('div', {
+    createElement('div', {
       key: 'content',
       className: 'mobile-card-body',
       style: { flex: 1, overflow: 'auto' }
     }, 
       selectedTab === 'browse' ? 
-        React.createElement('div', {}, [
-          React.createElement('button', {
+        createElement('div', {}, [
+          createElement('button', {
             key: 'create',
             onClick: handleCreateNew,
             className: 'btn btn-primary'
           }, '➕ Create New Preset'),
-          React.createElement('div', {
+          createElement('div', {
             key: 'presets',
             style: { marginTop: 'var(--space-lg)' }
           }, presets.map(preset => 
-            React.createElement('div', {
+            createElement('div', {
               key: preset.id,
               style: {
                 padding: 'var(--space-md)',
@@ -229,33 +251,33 @@ function MobilePresetManager({ isOpen, onClose, currentPresetId, onPresetSelect,
                 marginBottom: 'var(--space-md)'
               }
             }, [
-              React.createElement('div', {
+              createElement('div', {
                 key: 'info',
                 style: { marginBottom: 'var(--space-sm)' }
               }, [
-                React.createElement('div', {
+                createElement('div', {
                   key: 'name',
                   style: { fontWeight: '600', marginBottom: 'var(--space-xs)' }
                 }, preset.name),
-                preset.description && React.createElement('div', {
+                preset.description && createElement('div', {
                   key: 'desc',
                   style: { fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }
                 }, preset.description),
-                React.createElement('div', {
+                createElement('div', {
                   key: 'details',
                   style: { fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }
                 }, `${preset.enabledKinds.length} detectors`)
               ]),
-              React.createElement('div', {
+              createElement('div', {
                 key: 'actions',
                 style: { display: 'flex', gap: 'var(--space-sm)' }
               }, [
-                React.createElement('button', {
+                createElement('button', {
                   key: 'select',
                   onClick: () => onPresetSelect(preset.id),
                   className: `btn btn-sm ${preset.id === currentPresetId ? 'btn-secondary' : 'btn-primary'}`
                 }, preset.id === currentPresetId ? '✓ Active' : 'Use'),
-                React.createElement('button', {
+                createElement('button', {
                   key: 'edit',
                   onClick: () => {
                     setEditingPreset(preset);
@@ -268,7 +290,7 @@ function MobilePresetManager({ isOpen, onClose, currentPresetId, onPresetSelect,
           ))
         ]) : 
       selectedTab === 'edit' && editingPreset ?
-        React.createElement(MobilePresetEditor, {
+        createElement(MobilePresetEditor, {
           preset: editingPreset,
           onSave: (preset) => {
             // Save logic here
@@ -282,12 +304,12 @@ function MobilePresetManager({ isOpen, onClose, currentPresetId, onPresetSelect,
           }
         }) :
       selectedTab === 'import' ?
-        React.createElement('div', {}, [
-          React.createElement('h4', {
+        createElement('div', {}, [
+          createElement('h4', {
             key: 'title',
             style: { marginBottom: 'var(--space-md)' }
           }, 'Import Presets'),
-          React.createElement('textarea', {
+          createElement('textarea', {
             key: 'input',
             value: importText,
             onChange: (e) => setImportText(e.target.value),
@@ -302,7 +324,7 @@ function MobilePresetManager({ isOpen, onClose, currentPresetId, onPresetSelect,
               fontSize: 'var(--font-size-sm)'
             }
           }),
-          React.createElement('button', {
+          createElement('button', {
             key: 'import',
             onClick: () => {
               console.log('Importing mobile presets:', importText);
@@ -315,14 +337,14 @@ function MobilePresetManager({ isOpen, onClose, currentPresetId, onPresetSelect,
     ),
     
     // Footer
-    React.createElement('div', {
+    createElement('div', {
       key: 'footer',
       style: {
         padding: 'var(--space-md)',
         borderTop: '1px solid var(--border-light)',
         background: 'var(--bg-secondary)'
       }
-    }, React.createElement('button', {
+    }, createElement('button', {
       onClick: onClose,
       className: 'btn btn-ghost'
     }, 'Close'))
@@ -339,9 +361,9 @@ function MobilePresetEditor({ preset, onSave, onCancel }) {
     'JWT', 'API_KEY', 'BARCODE', 'NAME', 'ADDRESS', 'OTHER'
   ];
 
-  return React.createElement('div', {}, [
+  return createElement('div', {}, [
     // Header
-    React.createElement('div', {
+    createElement('div', {
       key: 'header',
       style: { 
         display: 'flex', 
@@ -350,19 +372,19 @@ function MobilePresetEditor({ preset, onSave, onCancel }) {
         marginBottom: 'var(--space-lg)'
       }
     }, [
-      React.createElement('h4', {
+      createElement('h4', {
         key: 'title'
       }, formData.id ? 'Edit Preset' : 'Create New Preset'),
-      React.createElement('div', {
+      createElement('div', {
         key: 'actions',
         style: { display: 'flex', gap: 'var(--space-sm)' }
       }, [
-        React.createElement('button', {
+        createElement('button', {
           key: 'save',
           onClick: () => onSave(formData),
           className: 'btn btn-primary btn-sm'
         }, '💾 Save'),
-        React.createElement('button', {
+        createElement('button', {
           key: 'cancel',
           onClick: onCancel,
           className: 'btn btn-outline btn-sm'
@@ -371,7 +393,7 @@ function MobilePresetEditor({ preset, onSave, onCancel }) {
     ]),
     
     // Section Tabs
-    React.createElement('div', {
+    createElement('div', {
       key: 'tabs',
       style: { 
         display: 'flex',
@@ -380,7 +402,7 @@ function MobilePresetEditor({ preset, onSave, onCancel }) {
         flexWrap: 'wrap'
       }
     }, ['basic', 'detectors'].map(section =>
-      React.createElement('button', {
+      createElement('button', {
         key: section,
         onClick: () => setActiveSection(section),
         className: `btn btn-sm ${activeSection === section ? 'btn-primary' : 'btn-outline'}`,
@@ -390,15 +412,15 @@ function MobilePresetEditor({ preset, onSave, onCancel }) {
     
     // Form Content
     activeSection === 'basic' ?
-      React.createElement('div', {
+      createElement('div', {
         key: 'basic-form',
         style: { display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }
       }, [
-        React.createElement('div', { key: 'name' }, [
-          React.createElement('label', {
+        createElement('div', { key: 'name' }, [
+          createElement('label', {
             style: { display: 'block', marginBottom: 'var(--space-xs)', fontWeight: '600' }
           }, 'Name *'),
-          React.createElement('input', {
+          createElement('input', {
             type: 'text',
             value: formData.name,
             onChange: (e) => setFormData({ ...formData, name: e.target.value }),
@@ -412,11 +434,11 @@ function MobilePresetEditor({ preset, onSave, onCancel }) {
             placeholder: 'Enter preset name'
           })
         ]),
-        React.createElement('div', { key: 'desc' }, [
-          React.createElement('label', {
+        createElement('div', { key: 'desc' }, [
+          createElement('label', {
             style: { display: 'block', marginBottom: 'var(--space-xs)', fontWeight: '600' }
           }, 'Description'),
-          React.createElement('textarea', {
+          createElement('textarea', {
             value: formData.description || '',
             onChange: (e) => setFormData({ ...formData, description: e.target.value }),
             style: {
@@ -432,18 +454,18 @@ function MobilePresetEditor({ preset, onSave, onCancel }) {
         ])
       ]) :
     activeSection === 'detectors' ?
-      React.createElement('div', {
+      createElement('div', {
         key: 'detectors-form'
       }, [
-        React.createElement('h5', {
+        createElement('h5', {
           key: 'title',
           style: { marginBottom: 'var(--space-md)' }
         }, 'Enabled Detection Types'),
-        React.createElement('div', {
+        createElement('div', {
           key: 'checkboxes',
           style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 'var(--space-sm)' }
         }, DETECTION_KINDS.map(kind => 
-          React.createElement('label', {
+          createElement('label', {
             key: kind,
             style: { 
               display: 'flex', 
@@ -454,7 +476,7 @@ function MobilePresetEditor({ preset, onSave, onCancel }) {
               borderRadius: 'var(--radius-sm)'
             }
           }, [
-            React.createElement('input', {
+            createElement('input', {
               key: 'checkbox',
               type: 'checkbox',
               checked: formData.enabledKinds.includes(kind),
@@ -465,7 +487,7 @@ function MobilePresetEditor({ preset, onSave, onCancel }) {
                 setFormData({ ...formData, enabledKinds: updated });
               }
             }),
-            React.createElement('span', {
+            createElement('span', {
               key: 'label',
               style: { fontSize: 'var(--font-size-sm)' }
             }, kind)
@@ -506,7 +528,7 @@ function MobileHistoryDashboard({ isOpen, onClose }) {
 
   if (!isOpen) return null;
 
-  return React.createElement('div', {
+  return createElement('div', {
     style: {
       position: 'fixed',
       top: 0,
@@ -517,7 +539,7 @@ function MobileHistoryDashboard({ isOpen, onClose }) {
       zIndex: 1000,
       padding: 'var(--space-md)'
     }
-  }, React.createElement('div', {
+  }, createElement('div', {
     className: 'mobile-card',
     style: { 
       height: '90vh', 
@@ -527,28 +549,28 @@ function MobileHistoryDashboard({ isOpen, onClose }) {
     }
   }, [
     // Header
-    React.createElement('div', {
+    createElement('div', {
       key: 'header',
       className: 'mobile-card-header'
     }, [
-      React.createElement('h3', {
+      createElement('h3', {
         key: 'title',
         className: 'mobile-card-title'
       }, '📊 Processing History'),
-      React.createElement('p', {
+      createElement('p', {
         key: 'subtitle',
         className: 'mobile-card-subtitle'
       }, 'Analytics and audit trail')
     ]),
 
     // Content
-    React.createElement('div', {
+    createElement('div', {
       key: 'content',
       className: 'mobile-card-body',
       style: { flex: 1, overflow: 'auto' }
     }, stats ? [
       // Key Metrics
-      React.createElement('div', {
+      createElement('div', {
         key: 'metrics',
         style: {
           display: 'grid',
@@ -562,7 +584,7 @@ function MobileHistoryDashboard({ isOpen, onClose }) {
         ['Detections Made', stats.totalDetections, 'var(--color-accent)'],
         ['Success Rate', `${Math.round(stats.successRate * 100)}%`, 'var(--color-success)']
       ].map(([label, value, color], index) =>
-        React.createElement('div', {
+        createElement('div', {
           key: index,
           style: {
             padding: 'var(--space-md)',
@@ -572,7 +594,7 @@ function MobileHistoryDashboard({ isOpen, onClose }) {
             border: '1px solid var(--border-light)'
           }
         }, [
-          React.createElement('div', {
+          createElement('div', {
             key: 'value',
             style: { 
               fontSize: 'var(--font-size-xl)', 
@@ -581,7 +603,7 @@ function MobileHistoryDashboard({ isOpen, onClose }) {
               marginBottom: 'var(--space-xs)'
             }
           }, value),
-          React.createElement('div', {
+          createElement('div', {
             key: 'label',
             style: { 
               fontSize: 'var(--font-size-xs)',
@@ -592,7 +614,7 @@ function MobileHistoryDashboard({ isOpen, onClose }) {
       )),
 
       // Detection Types Chart
-      React.createElement('div', {
+      createElement('div', {
         key: 'chart',
         style: {
           background: 'var(--bg-secondary)',
@@ -601,27 +623,27 @@ function MobileHistoryDashboard({ isOpen, onClose }) {
           border: '1px solid var(--border-light)'
         }
       }, [
-        React.createElement('h4', {
+        createElement('h4', {
           key: 'title',
           style: { 
             marginBottom: 'var(--space-md)',
             color: 'var(--color-primary)'
           }
         }, 'Detection Types'),
-        React.createElement('div', {
+        createElement('div', {
           key: 'bars',
           style: { display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }
         }, Object.entries(stats.detectionsByType).map(([type, count]) => {
           const percentage = (count / stats.totalDetections) * 100;
-          return React.createElement('div', {
+          return createElement('div', {
             key: type,
             style: { display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }
           }, [
-            React.createElement('div', {
+            createElement('div', {
               key: 'type',
               style: { minWidth: '60px', fontSize: 'var(--font-size-sm)', fontWeight: '600' }
             }, type),
-            React.createElement('div', {
+            createElement('div', {
               key: 'bar',
               style: {
                 flex: 1,
@@ -631,7 +653,7 @@ function MobileHistoryDashboard({ isOpen, onClose }) {
                 overflow: 'hidden',
                 position: 'relative'
               }
-            }, React.createElement('div', {
+            }, createElement('div', {
               style: {
                 height: '100%',
                 width: `${percentage}%`,
@@ -639,7 +661,7 @@ function MobileHistoryDashboard({ isOpen, onClose }) {
                 borderRadius: 'var(--radius-sm)'
               }
             })),
-            React.createElement('div', {
+            createElement('div', {
               key: 'count',
               style: { 
                 minWidth: '40px', 
@@ -650,7 +672,7 @@ function MobileHistoryDashboard({ isOpen, onClose }) {
           ]);
         }))
       ])
-    ] : React.createElement('div', {
+    ] : createElement('div', {
       style: { 
         display: 'flex',
         alignItems: 'center',
@@ -660,14 +682,14 @@ function MobileHistoryDashboard({ isOpen, onClose }) {
     }, 'Loading history data...')),
 
     // Footer
-    React.createElement('div', {
+    createElement('div', {
       key: 'footer',
       style: {
         padding: 'var(--space-md)',
         borderTop: '1px solid var(--border-light)',
         background: 'var(--bg-secondary)'
       }
-    }, React.createElement('button', {
+    }, createElement('button', {
       onClick: onClose,
       className: 'btn btn-ghost'
     }, 'Close'))
@@ -676,7 +698,7 @@ function MobileHistoryDashboard({ isOpen, onClose }) {
 
 // Mobile Undo/Redo Controls Component
 function MobileUndoRedoControls({ onUndo, onRedo, canUndo, canRedo, onOpenHistory }) {
-  return React.createElement('div', {
+  return createElement('div', {
     style: {
       position: 'fixed',
       bottom: '20px',
@@ -692,7 +714,7 @@ function MobileUndoRedoControls({ onUndo, onRedo, canUndo, canRedo, onOpenHistor
       zIndex: 100
     }
   }, [
-    React.createElement('button', {
+    createElement('button', {
       key: 'undo',
       onClick: onUndo,
       disabled: !canUndo,
@@ -704,7 +726,7 @@ function MobileUndoRedoControls({ onUndo, onRedo, canUndo, canRedo, onOpenHistor
       },
       title: 'Undo'
     }, '↶'),
-    React.createElement('button', {
+    createElement('button', {
       key: 'redo',
       onClick: onRedo,
       disabled: !canRedo,
@@ -716,7 +738,7 @@ function MobileUndoRedoControls({ onUndo, onRedo, canUndo, canRedo, onOpenHistor
       },
       title: 'Redo'
     }, '↷'),
-    React.createElement('div', {
+    createElement('div', {
       key: 'divider',
       style: {
         height: '1px',
@@ -724,7 +746,7 @@ function MobileUndoRedoControls({ onUndo, onRedo, canUndo, canRedo, onOpenHistor
         margin: '2px 0'
       }
     }),
-    React.createElement('button', {
+    createElement('button', {
       key: 'history',
       onClick: onOpenHistory,
       className: 'btn btn-outline btn-sm',
@@ -751,7 +773,7 @@ function MobileKeyboardHelp({ isOpen, onClose }) {
     { keys: ['Escape'], description: 'Close modals', context: 'External keyboard' }
   ];
 
-  return React.createElement('div', {
+  return createElement('div', {
     style: {
       position: 'fixed',
       top: 0,
@@ -762,7 +784,7 @@ function MobileKeyboardHelp({ isOpen, onClose }) {
       zIndex: 1000,
       padding: 'var(--space-md)'
     }
-  }, React.createElement('div', {
+  }, createElement('div', {
     className: 'mobile-card',
     style: { 
       height: '90vh',
@@ -772,31 +794,31 @@ function MobileKeyboardHelp({ isOpen, onClose }) {
     }
   }, [
     // Header
-    React.createElement('div', {
+    createElement('div', {
       key: 'header',
       className: 'mobile-card-header'
     }, [
-      React.createElement('h3', {
+      createElement('h3', {
         key: 'title',
         className: 'mobile-card-title'
       }, '📱 Mobile Controls'),
-      React.createElement('p', {
+      createElement('p', {
         key: 'subtitle',
         className: 'mobile-card-subtitle'
       }, 'Touch gestures and shortcuts')
     ]),
 
     // Content
-    React.createElement('div', {
+    createElement('div', {
       key: 'content',
       className: 'mobile-card-body',
       style: { flex: 1, overflow: 'auto' }
     }, [
-      React.createElement('div', {
+      createElement('div', {
         key: 'shortcuts',
         style: { display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }
       }, shortcuts.map((shortcut, index) =>
-        React.createElement('div', {
+        createElement('div', {
           key: index,
           style: {
             display: 'flex',
@@ -808,15 +830,15 @@ function MobileKeyboardHelp({ isOpen, onClose }) {
             gap: 'var(--space-md)'
           }
         }, [
-          React.createElement('div', {
+          createElement('div', {
             key: 'info',
             style: { flex: 1 }
           }, [
-            React.createElement('div', {
+            createElement('div', {
               key: 'desc',
               style: { fontWeight: '600', marginBottom: '2px' }
             }, shortcut.description),
-            React.createElement('div', {
+            createElement('div', {
               key: 'context',
               style: { 
                 fontSize: 'var(--font-size-xs)',
@@ -824,7 +846,7 @@ function MobileKeyboardHelp({ isOpen, onClose }) {
               }
             }, `Context: ${shortcut.context}`)
           ]),
-          React.createElement('div', {
+          createElement('div', {
             key: 'keys',
             style: {
               padding: '4px 8px',
@@ -839,7 +861,7 @@ function MobileKeyboardHelp({ isOpen, onClose }) {
       )),
 
       // Mobile-specific tips
-      React.createElement('div', {
+      createElement('div', {
         key: 'tips',
         style: {
           marginTop: 'var(--space-xl)',
@@ -849,11 +871,11 @@ function MobileKeyboardHelp({ isOpen, onClose }) {
           color: 'white'
         }
       }, [
-        React.createElement('h4', {
+        createElement('h4', {
           key: 'title',
           style: { marginBottom: 'var(--space-sm)', color: 'white' }
         }, '💡 Mobile Tips'),
-        React.createElement('ul', {
+        createElement('ul', {
           key: 'list',
           style: { 
             margin: 0,
@@ -862,23 +884,23 @@ function MobileKeyboardHelp({ isOpen, onClose }) {
             color: 'white'
           }
         }, [
-          React.createElement('li', { key: 'tip1' }, 'Use touch gestures for quick navigation'),
-          React.createElement('li', { key: 'tip2' }, 'Long press for additional options'),
-          React.createElement('li', { key: 'tip3' }, 'External keyboard shortcuts work when connected'),
-          React.createElement('li', { key: 'tip4' }, 'Swipe gestures provide quick access to features')
+          createElement('li', { key: 'tip1' }, 'Use touch gestures for quick navigation'),
+          createElement('li', { key: 'tip2' }, 'Long press for additional options'),
+          createElement('li', { key: 'tip3' }, 'External keyboard shortcuts work when connected'),
+          createElement('li', { key: 'tip4' }, 'Swipe gestures provide quick access to features')
         ])
       ])
     ]),
 
     // Footer
-    React.createElement('div', {
+    createElement('div', {
       key: 'footer',
       style: {
         padding: 'var(--space-md)',
         borderTop: '1px solid var(--border-light)',
         background: 'var(--bg-secondary)'
       }
-    }, React.createElement('button', {
+    }, createElement('button', {
       onClick: onClose,
       className: 'btn btn-primary'
     }, 'Close'))
@@ -1061,21 +1083,21 @@ function MobileCleanSharePro() {
   const currentFileState = fileStates[currentFileIndex];
 
   // Main render
-  return React.createElement('div', {
+  return createElement('div', {
     className: 'app-container'
   }, [
     // Header
-    React.createElement('div', {
+    createElement('div', {
       key: 'header',
       className: 'mobile-header'
     }, [
-      React.createElement('h1', {
+      createElement('h1', {
         key: 'title'
       }, 'CleanShare Pro'),
-      React.createElement('p', {
+      createElement('p', {
         key: 'subtitle'
       }, 'Privacy-focused document sanitization'),
-      React.createElement('div', {
+      createElement('div', {
         key: 'controls',
         style: { 
           display: 'flex',
@@ -1084,19 +1106,19 @@ function MobileCleanSharePro() {
           marginTop: 'var(--space-md)'
         }
       }, [
-        React.createElement('button', {
+        createElement('button', {
           key: 'presets',
           onClick: () => setShowPresetManager(true),
           className: 'btn btn-outline btn-sm',
           style: { minWidth: 'auto', padding: 'var(--space-sm)' }
         }, '🎛️'),
-        React.createElement('button', {
+        createElement('button', {
           key: 'history',
           onClick: () => setShowHistoryDashboard(true),
           className: 'btn btn-outline btn-sm',
           style: { minWidth: 'auto', padding: 'var(--space-sm)' }
         }, '📊'),
-        React.createElement('button', {
+        createElement('button', {
           key: 'help',
           onClick: () => setShowKeyboardHelp(true),
           className: 'btn btn-outline btn-sm',
@@ -1106,33 +1128,33 @@ function MobileCleanSharePro() {
     ]),
 
     // Content
-    React.createElement('div', {
+    createElement('div', {
       key: 'content',
       className: 'mobile-content'
     }, [
       // File Upload Card
-      React.createElement('div', {
+      createElement('div', {
         key: 'upload-card',
         className: 'mobile-card'
       }, [
-        React.createElement('div', {
+        createElement('div', {
           key: 'header',
           className: 'mobile-card-header'
         }, [
-          React.createElement('h2', {
+          createElement('h2', {
             key: 'title',
             className: 'mobile-card-title'
           }, 'Upload Files'),
-          React.createElement('p', {
+          createElement('p', {
             key: 'subtitle',
             className: 'mobile-card-subtitle'
           }, 'Select images or PDF documents to sanitize')
         ]),
-        React.createElement('div', {
+        createElement('div', {
           key: 'body',
           className: 'mobile-card-body'
         }, [
-          React.createElement('div', {
+          createElement('div', {
             key: 'upload-zone',
             className: 'file-drop-zone',
             onClick: () => {
@@ -1144,21 +1166,21 @@ function MobileCleanSharePro() {
               input.click();
             }
           }, [
-            React.createElement('div', {
+            createElement('div', {
               key: 'icon',
               className: 'file-drop-icon'
             }, '📄'),
-            React.createElement('div', {
+            createElement('div', {
               key: 'text',
               className: 'file-drop-text'
             }, 'Select Files'),
-            React.createElement('div', {
+            createElement('div', {
               key: 'subtext',
               className: 'file-drop-subtext'
             }, 'Tap to select images or PDFs up to 10MB each')
           ]),
           
-          loading && React.createElement('div', {
+          loading && createElement('div', {
             key: 'loading',
             style: {
               display: 'flex',
@@ -1168,11 +1190,11 @@ function MobileCleanSharePro() {
               justifyContent: 'center'
             }
           }, [
-            React.createElement('div', {
+            createElement('div', {
               key: 'spinner',
               className: 'processing-spinner'
             }),
-            React.createElement('span', {
+            createElement('span', {
               key: 'text'
             }, 'Processing files...')
           ])
@@ -1180,35 +1202,35 @@ function MobileCleanSharePro() {
       ]),
 
       // File Results
-      fileStates.length > 0 && React.createElement('div', {
+      fileStates.length > 0 && createElement('div', {
         key: 'results',
         style: { display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }
       }, [
         // File list
-        fileStates.length > 1 && React.createElement('div', {
+        fileStates.length > 1 && createElement('div', {
           key: 'file-list',
           className: 'mobile-card'
         }, [
-          React.createElement('div', {
+          createElement('div', {
             key: 'header',
             className: 'mobile-card-header'
           }, [
-            React.createElement('h3', {
+            createElement('h3', {
               key: 'title',
               className: 'mobile-card-title'
             }, `Files (${fileStates.length})`),
-            React.createElement('p', {
+            createElement('p', {
               key: 'subtitle',
               className: 'mobile-card-subtitle'
             }, 'Tap a file to view details')
           ]),
-          React.createElement('div', {
+          createElement('div', {
             key: 'body',
             className: 'mobile-card-body'
-          }, React.createElement('div', {
+          }, createElement('div', {
             style: { display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }
           }, fileStates.map((state, index) => 
-            React.createElement('div', {
+            createElement('div', {
               key: index,
               onClick: () => setCurrentFileIndex(index),
               style: {
@@ -1219,11 +1241,11 @@ function MobileCleanSharePro() {
                 cursor: 'pointer'
               }
             }, [
-              React.createElement('div', {
+              createElement('div', {
                 key: 'info',
                 style: { fontWeight: '600', marginBottom: 'var(--space-xs)' }
               }, state.file.name),
-              React.createElement('div', {
+              createElement('div', {
                 key: 'details',
                 style: { fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }
               }, state.error ? `Error: ${state.error}` : `${state.detections.length} detections found`)
@@ -1232,47 +1254,47 @@ function MobileCleanSharePro() {
         ]),
 
         // Current file details
-        currentFileState && React.createElement('div', {
+        currentFileState && createElement('div', {
           key: 'current-file',
           className: 'mobile-card'
         }, [
-          React.createElement('div', {
+          createElement('div', {
             key: 'header',
             className: 'mobile-card-header'
           }, [
-            React.createElement('h3', {
+            createElement('h3', {
               key: 'title',
               className: 'mobile-card-title'
             }, currentFileState.file.name),
-            React.createElement('p', {
+            createElement('p', {
               key: 'subtitle',
               className: 'mobile-card-subtitle'
             }, currentFileState.error ? 'Processing failed' : `Found ${currentFileState.detections.length} sensitive items`)
           ]),
-          React.createElement('div', {
+          createElement('div', {
             key: 'body',
             className: 'mobile-card-body'
           }, currentFileState.error ? 
-            React.createElement('div', {
+            createElement('div', {
               className: 'alert alert-error'
             }, [
-              React.createElement('strong', { key: 'title' }, 'Processing Error'),
-              React.createElement('p', { 
+              createElement('strong', { key: 'title' }, 'Processing Error'),
+              createElement('p', { 
                 key: 'message',
                 style: { margin: '0', marginTop: 'var(--space-xs)' }
               }, `Failed to analyze this file: ${currentFileState.error}`)
             ]) :
             currentFileState.detections.length > 0 ?
-              React.createElement('div', {}, [
-                React.createElement('h4', {
+              createElement('div', {}, [
+                createElement('h4', {
                   key: 'detections-title',
                   style: { marginBottom: 'var(--space-md)' }
                 }, 'Detected Sensitive Information'),
-                React.createElement('div', {
+                createElement('div', {
                   key: 'detections',
                   style: { display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }
                 }, currentFileState.detections.map(detection => 
-                  React.createElement('div', {
+                  createElement('div', {
                     key: detection.id,
                     style: {
                       padding: 'var(--space-md)',
@@ -1281,19 +1303,19 @@ function MobileCleanSharePro() {
                       background: 'var(--bg-secondary)'
                     }
                   }, [
-                    React.createElement('div', {
+                    createElement('div', {
                       key: 'info',
                       style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' }
                     }, [
-                      React.createElement('div', {
+                      createElement('div', {
                         key: 'details',
                         style: { flex: 1 }
                       }, [
-                        React.createElement('label', {
+                        createElement('label', {
                           key: 'label',
                           style: { display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }
                         }, [
-                          React.createElement('input', {
+                          createElement('input', {
                             key: 'checkbox',
                             type: 'checkbox',
                             checked: currentFileState.selected[detection.id] || false,
@@ -1314,14 +1336,14 @@ function MobileCleanSharePro() {
                               );
                             }
                           }),
-                          React.createElement('div', {
+                          createElement('div', {
                             key: 'text'
                           }, [
-                            React.createElement('div', {
+                            createElement('div', {
                               key: 'kind',
                               style: { fontWeight: '600' }
                             }, `${detection.kind}: ${detection.preview || 'N/A'}`),
-                            React.createElement('div', {
+                            createElement('div', {
                               key: 'confidence',
                               style: { fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }
                             }, `Confidence: ${Math.round(detection.confidence * 100)}%`)
@@ -1332,18 +1354,18 @@ function MobileCleanSharePro() {
                   ])
                 )),
                 
-                React.createElement('div', {
+                createElement('div', {
                   key: 'actions',
                   style: { marginTop: 'var(--space-xl)' }
                 }, [
-                  React.createElement('button', {
+                  createElement('button', {
                     key: 'sanitize',
                     onClick: () => handleSanitize(currentFileIndex),
                     className: 'btn btn-primary',
                     disabled: currentFileState.processing
                   }, currentFileState.processing ? 'Processing...' : '🔒 Sanitize Document'),
                   
-                  currentFileState.outputUri && React.createElement('button', {
+                  currentFileState.outputUri && createElement('button', {
                     key: 'download',
                     onClick: () => handleDownload(currentFileIndex),
                     className: 'btn btn-secondary',
@@ -1351,11 +1373,11 @@ function MobileCleanSharePro() {
                   }, '📥 Download Clean File')
                 ])
               ]) :
-              React.createElement('div', {
+              createElement('div', {
                 className: 'alert alert-success'
               }, [
-                React.createElement('strong', { key: 'title' }, 'No sensitive information detected!'),
-                React.createElement('p', {
+                createElement('strong', { key: 'title' }, 'No sensitive information detected!'),
+                createElement('p', {
                   key: 'message',
                   style: { margin: '0', marginTop: 'var(--space-xs)' }
                 }, 'This document appears to be clean and safe to share.')
@@ -1366,7 +1388,7 @@ function MobileCleanSharePro() {
     ]),
 
     // Modals
-    React.createElement(MobilePresetManager, {
+    createElement(MobilePresetManager, {
       key: 'preset-manager',
       isOpen: showPresetManager,
       onClose: () => setShowPresetManager(false),
@@ -1375,20 +1397,20 @@ function MobileCleanSharePro() {
       presets: presets
     }),
 
-    React.createElement(MobileHistoryDashboard, {
+    createElement(MobileHistoryDashboard, {
       key: 'history-dashboard',
       isOpen: showHistoryDashboard,
       onClose: () => setShowHistoryDashboard(false)
     }),
 
-    React.createElement(MobileKeyboardHelp, {
+    createElement(MobileKeyboardHelp, {
       key: 'keyboard-help',
       isOpen: showKeyboardHelp,
       onClose: () => setShowKeyboardHelp(false)
     }),
 
     // Floating Controls
-    fileStates.length > 0 && React.createElement(MobileUndoRedoControls, {
+    fileStates.length > 0 && createElement(MobileUndoRedoControls, {
       key: 'undo-redo',
       onUndo: () => undoRedoSystem.undo(),
       onRedo: () => undoRedoSystem.redo(),
@@ -1399,7 +1421,7 @@ function MobileCleanSharePro() {
   ]);
 }
 
-// Error Boundary for better error debugging
+// Error Boundary for better error debugging  
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -1416,13 +1438,13 @@ class ErrorBoundary extends React.Component {
 
   render() {
     if (this.state.hasError) {
-      return React.createElement('div', {
+      return createElement('div', {
         className: 'mobile-header',
         style: { padding: 'var(--space-lg)', textAlign: 'center' }
       }, [
-        React.createElement('h1', { key: 'title' }, '⚠️ App Error'),
-        React.createElement('p', { key: 'message' }, 'Something went wrong with the React app.'),
-        React.createElement('pre', { 
+        createElement('h1', { key: 'title' }, '⚠️ App Error'),
+        createElement('p', { key: 'message' }, 'Something went wrong with the React app.'),
+        createElement('pre', { 
           key: 'error',
           style: { 
             fontSize: 'var(--font-size-xs)', 
@@ -1434,7 +1456,7 @@ class ErrorBoundary extends React.Component {
             textAlign: 'left'
           }
         }, this.state.error ? this.state.error.toString() : 'Unknown error'),
-        React.createElement('button', {
+        createElement('button', {
           key: 'reload',
           onClick: () => location.reload(),
           className: 'btn btn-primary'
@@ -1468,14 +1490,31 @@ function waitForReact() {
   });
 }
 
+// Prevent multiple initializations
+let isInitializing = false;
+let isInitialized = false;
+
 // Initialize mobile app when DOM is ready and React is available
 async function initializeMobileApp() {
+  if (isInitializing || isInitialized) {
+    console.log('App already initializing or initialized, skipping...');
+    return isInitialized;
+  }
+  
+  isInitializing = true;
   console.log('Initializing mobile app with Phase 2.4 features...');
   
   const appContainer = document.getElementById('app');
   if (!appContainer) {
     console.error('Mobile app container not found');
+    isInitializing = false;
     return false;
+  }
+  
+  // Check if container already has a React root
+  if (appContainer._reactRootContainer || appContainer._reactInternalFiber) {
+    console.log('Container already has React root, clearing...');
+    appContainer.innerHTML = '';
   }
 
   try {
@@ -1487,19 +1526,50 @@ async function initializeMobileApp() {
     
     // Clear existing content and render React app using React 18 createRoot
     appContainer.innerHTML = '';
-    const root = ReactDOM.createRoot(appContainer);
     
-    // Wrap in error boundary for better debugging
+    // Check for correct React 18 createRoot API
+    let root;
+    if (typeof ReactDOM.createRoot !== 'undefined') {
+      console.log('Using ReactDOM.createRoot');
+      root = ReactDOM.createRoot(appContainer);
+    } else if (typeof ReactDOMClient !== 'undefined' && typeof ReactDOMClient.createRoot !== 'undefined') {
+      console.log('Using ReactDOMClient.createRoot');
+      root = ReactDOMClient.createRoot(appContainer);
+    } else {
+      // Fallback to legacy render for compatibility
+      console.log('Using legacy ReactDOM.render');
+      // Debug component availability for legacy render
+      console.log('Legacy render - ErrorBoundary available:', typeof ErrorBoundary);
+      console.log('Legacy render - MobileCleanSharePro available:', typeof MobileCleanSharePro);
+      
+      ReactDOM.render(React.createElement(ErrorBoundary, {}, 
+        React.createElement(MobileCleanSharePro)
+      ), appContainer);
+      console.log('✅ Mobile React app with Phase 2.4 features initialized successfully (legacy mode)');
+      isInitialized = true;
+      isInitializing = false;
+      return true;
+    }
+    
+    // Debug component availability
+    console.log('ErrorBoundary available:', typeof ErrorBoundary);
+    console.log('MobileCleanSharePro available:', typeof MobileCleanSharePro);
+    
+    // Wrap in error boundary for better debugging - use React.createElement for top-level 
     const AppWithErrorBoundary = React.createElement(ErrorBoundary, {}, 
       React.createElement(MobileCleanSharePro)
     );
     
     root.render(AppWithErrorBoundary);
     console.log('✅ Mobile React app with Phase 2.4 features initialized successfully');
+    isInitialized = true;
+    isInitializing = false;
     return true;
   } catch (error) {
     console.error('❌ Failed to initialize mobile React app:', error);
     console.error('Error details:', error.stack);
+    isInitializing = false;
+    isInitialized = false;
     return false;
   }
 }
