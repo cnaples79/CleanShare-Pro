@@ -69,22 +69,102 @@ async function performOcrWithTesseract(file) {
 
     const detections = [];
     
-    // Process OCR words
+    // Process OCR words - check different possible data structures
+    console.log('Mobile: Tesseract data structure:', data);
+    console.log('Mobile: Available data properties:', Object.keys(data));
+    console.log(`Mobile: Image dimensions from Tesseract - width: ${data.width}, height: ${data.height}`);
+    
+    // Check if dimensions are available in different locations
+    const imageWidth = data.width || data.image?.width || data.imageWidth;
+    const imageHeight = data.height || data.image?.height || data.imageHeight;
+    console.log(`Mobile: Resolved image dimensions - width: ${imageWidth}, height: ${imageHeight}`);
+    
     if (data.words) {
+      console.log(`Mobile: Processing ${data.words.length} words from Tesseract`);
       for (const word of data.words) {
         if (!word.text || !word.text.trim()) continue;
+        
+        console.log('Mobile: Word object structure:', word);
+        console.log('Mobile: Word bbox:', word.bbox);
         
         const match = detectToken(word.text);
         if (match) {
           const { kind, reason } = match;
           
-          // Convert coordinates to normalized format
+          // Try different possible bbox formats
+          let bbox = null;
+          
+          if (word.bbox && typeof word.bbox === 'object') {
+            // Format 1: {x0, y0, x1, y1}
+            if (word.bbox.x0 !== undefined) {
+              bbox = {
+                x0: word.bbox.x0,
+                y0: word.bbox.y0,
+                x1: word.bbox.x1,
+                y1: word.bbox.y1
+              };
+            }
+            // Format 2: {left, top, right, bottom}
+            else if (word.bbox.left !== undefined) {
+              bbox = {
+                x0: word.bbox.left,
+                y0: word.bbox.top,
+                x1: word.bbox.right,
+                y1: word.bbox.bottom
+              };
+            }
+          }
+          
+          // Fallback: check if word has direct coordinate properties
+          if (!bbox && word.x0 !== undefined) {
+            bbox = {
+              x0: word.x0,
+              y0: word.y0,
+              x1: word.x1,
+              y1: word.y1
+            };
+          }
+          
+          // Another fallback: check common Tesseract formats
+          if (!bbox && word.left !== undefined) {
+            bbox = {
+              x0: word.left,
+              y0: word.top,
+              x1: word.left + word.width,
+              y1: word.top + word.height
+            };
+          }
+          
+          console.log(`Mobile: Extracted bbox for "${word.text}":`, bbox);
+          
+          if (!bbox || bbox.x0 === undefined || isNaN(bbox.x0)) {
+            console.error(`Mobile: Invalid bbox for word "${word.text}"`, bbox);
+            continue;
+          }
+          
+          // Convert to normalized format using resolved dimensions
+          if (!imageWidth || !imageHeight || isNaN(imageWidth) || isNaN(imageHeight)) {
+            console.error(`Mobile: Invalid image dimensions for normalization: ${imageWidth}x${imageHeight}`);
+            continue;
+          }
+          
           const box = {
-            x: word.bbox.x0 / data.width,
-            y: word.bbox.y0 / data.height,
-            width: (word.bbox.x1 - word.bbox.x0) / data.width,
-            height: (word.bbox.y1 - word.bbox.y0) / data.height
+            x: bbox.x0 / imageWidth,
+            y: bbox.y0 / imageHeight,
+            width: (bbox.x1 - bbox.x0) / imageWidth,
+            height: (bbox.y1 - bbox.y0) / imageHeight
           };
+          
+          console.log(`Mobile: Tesseract detected "${word.text}" at bbox (${bbox.x0}, ${bbox.y0}, ${bbox.x1}, ${bbox.y1}) image ${imageWidth}x${imageHeight}`);
+          console.log(`Mobile: Normalized to (${box.x.toFixed(3)}, ${box.y.toFixed(3)}) size ${box.width.toFixed(3)}x${box.height.toFixed(3)}`);
+          
+          // Validate normalized coordinates
+          if (isNaN(box.x) || isNaN(box.y) || isNaN(box.width) || isNaN(box.height)) {
+            console.error(`Mobile: Normalization failed - got NaN values:`, box);
+            console.error(`Mobile: bbox:`, bbox);
+            console.error(`Mobile: dimensions:`, {imageWidth, imageHeight});
+            continue;
+          }
           
           detections.push({
             id: `${kind}_${detections.length}`,
@@ -294,14 +374,26 @@ async function redactImageFile(file, detections, options = {}) {
         
         // Draw redaction boxes
         ctx.fillStyle = 'black';
+        console.log(`Mobile: Canvas size: ${canvas.width}x${canvas.height}, Image size: ${img.width}x${img.height}`);
+        
         for (const detection of detections) {
           const x = detection.box.x * img.width;
           const y = detection.box.y * img.height;
           const width = detection.box.width * img.width;
           const height = detection.box.height * img.height;
           
+          console.log(`Mobile: Drawing image redaction for "${detection.text}":`);
+          console.log(`Mobile: Normalized box: (${detection.box.x.toFixed(3)}, ${detection.box.y.toFixed(3)}) size ${detection.box.width.toFixed(3)}x${detection.box.height.toFixed(3)}`);
+          console.log(`Mobile: Canvas coords: (${x.toFixed(2)}, ${y.toFixed(2)}) size ${width.toFixed(2)}x${height.toFixed(2)}`);
+          
+          // Draw a thick red border for debugging (easier to see than black)
+          ctx.strokeStyle = 'red';
+          ctx.lineWidth = 3;
+          ctx.strokeRect(x, y, width, height);
+          
+          // Draw the black fill
           ctx.fillRect(x, y, width, height);
-          console.log(`Mobile: Redacted ${detection.kind} at (${x}, ${y})`);
+          console.log(`Mobile: Drew redaction box for ${detection.kind} at (${x.toFixed(2)}, ${y.toFixed(2)})`);
         }
         
         canvas.toBlob((blob) => {
