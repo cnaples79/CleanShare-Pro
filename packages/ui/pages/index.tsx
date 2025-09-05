@@ -7,7 +7,12 @@ import type {
   Preset,
   DetectionKind
 } from '@cleanshare/core-detect';
-import { analyzeDocument, applyRedactions, listPresets, savePreset, deletePreset } from '@cleanshare/core-detect';
+import { analyzeDocument, applyRedactions, startSession, endSession, startFileProcessing, recordAnalysisResults, recordRedactionResults } from '@cleanshare/core-detect';
+import PresetManager from '../src/components/PresetManager';
+import HistoryDashboard from '../src/components/HistoryDashboard';
+import UndoRedoManager, { UndoRedoControls } from '../src/components/UndoRedoManager';
+import KeyboardShortcutsHelp from '../src/components/KeyboardShortcutsHelp';
+import { useUndoRedo } from '../src/hooks/useUndoRedo';
 
 interface FileState {
   file: File;
@@ -32,15 +37,86 @@ export default function CleanSharePro() {
   const [loading, setLoading] = useState(false);
   const [proUnlocked, setProUnlocked] = useState(false);
   const [showPresetEditor, setShowPresetEditor] = useState(false);
+  const [showHistoryDashboard, setShowHistoryDashboard] = useState(false);
+  const [showUndoRedoManager, setShowUndoRedoManager] = useState(false);
+  const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [fileProcessingRecords, setFileProcessingRecords] = useState<Map<number, string>>(new Map());
 
-  // Load presets on mount
-  useEffect(() => {
-    const ps = listPresets();
-    setPresets(ps);
-    if (ps.length > 0) {
-      setPresetId(ps[0].id);
+  // Undo/Redo system for file states
+  const undoRedoSystem = useUndoRedo<FileState[]>([], { maxHistorySize: 100 });
+  
+  // Sync file states with undo/redo system
+  const updateFileStates = (newStates: FileState[], actionType?: string, description?: string) => {
+    if (actionType && description) {
+      const oldStates = fileStates;
+      undoRedoSystem.execute(
+        actionType,
+        description,
+        () => {
+          setFileStates(oldStates);
+          return oldStates;
+        },
+        () => {
+          setFileStates(newStates);
+          return newStates;
+        }
+      );
+    } else {
+      setFileStates(newStates);
     }
+  };
+
+  // Load presets on mount and when preset manager updates
+  const loadPresets = () => {
+    // Import listPresets dynamically to avoid SSR issues
+    import('@cleanshare/core-detect').then(({ listPresets }) => {
+      const ps = listPresets();
+      setPresets(ps);
+      if (ps.length > 0 && !presetId) {
+        setPresetId(ps[0].id);
+      }
+    });
+  };
+
+  useEffect(() => {
+    loadPresets();
   }, []);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeydown = (e: KeyboardEvent) => {
+      // Only handle shortcuts when not in input fields
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      const isCtrl = e.ctrlKey || e.metaKey;
+      
+      if (isCtrl && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undoRedoSystem.undo();
+      } else if ((isCtrl && e.key === 'y') || (isCtrl && e.shiftKey && e.key === 'z')) {
+        e.preventDefault();
+        undoRedoSystem.redo();
+      } else if (isCtrl && e.key === 'o') {
+        e.preventDefault();
+        document.getElementById('file-input')?.click();
+      } else if (e.key === 'Escape') {
+        // Close any open modals
+        setShowPresetEditor(false);
+        setShowHistoryDashboard(false);
+        setShowUndoRedoManager(false);
+        setShowKeyboardHelp(false);
+      } else if (e.key === '?' || e.key === 'F1') {
+        e.preventDefault();
+        setShowKeyboardHelp(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeydown);
+    return () => window.removeEventListener('keydown', handleKeydown);
+  }, [undoRedoSystem]);
 
   // Process files when they change
   useEffect(() => {
@@ -50,9 +126,41 @@ export default function CleanSharePro() {
       setLoading(true);
       const newStates: FileState[] = [];
       
-      for (const file of files) {
+      // Start processing session
+      const currentPreset = presets.find(p => p.id === presetId);
+      const sessionId = startSession({
+        totalFiles: files.length,
+        presetId,
+        presetName: currentPreset?.name,
+        analyzeOptions: { presetId }
+      });
+      setCurrentSessionId(sessionId);
+      
+      const processingRecords = new Map<number, string>();
+      
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const startTime = Date.now();
+        
+        // Start tracking this file
+        const recordId = startFileProcessing({
+          sessionId,
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type
+        });
+        processingRecords.set(i, recordId);
+        
         try {
           const result = await analyzeDocument(file, { presetId });
+          const analysisTime = Date.now() - startTime;
+          
+          // Record analysis results
+          recordAnalysisResults(recordId, {
+            detections: result.detections,
+            detectionTime: analysisTime
+          });
+          
           const selected: Record<string, boolean> = {};
           const actions: Record<string, { style: RedactionStyle; labelText?: string }> = {};
           
@@ -73,6 +181,13 @@ export default function CleanSharePro() {
           });
         } catch (error) {
           console.error('Failed to process file:', file.name, error);
+          
+          // Record analysis error
+          recordAnalysisResults(recordId, {
+            detections: [],
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+          
           // Add the file with error state
           newStates.push({
             file,
@@ -89,7 +204,11 @@ export default function CleanSharePro() {
       }
       
       setFileStates(newStates);
+      setFileProcessingRecords(processingRecords);
       setLoading(false);
+      
+      // End the session
+      endSession(sessionId, 'completed');
     }
     
     processFiles();
@@ -128,6 +247,9 @@ export default function CleanSharePro() {
       i === fileIndex ? { ...state, processing: true } : state
     ));
 
+    const redactionStartTime = Date.now();
+    const recordId = fileProcessingRecords.get(fileIndex);
+
     try {
       // Re-analyze the file to ensure lastResult is set correctly  
       await analyzeDocument(fileState.file, { presetId });
@@ -148,6 +270,16 @@ export default function CleanSharePro() {
       const response = await fetch(result.fileUri);
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
+      const redactionTime = Date.now() - redactionStartTime;
+
+      // Record redaction results
+      if (recordId) {
+        recordRedactionResults(recordId, {
+          appliedRedactions: redactionActions,
+          redactionTime,
+          outputSize: blob.size
+        });
+      }
 
       // Update file state with result
       setFileStates(prev => prev.map((state, i) => 
@@ -156,6 +288,15 @@ export default function CleanSharePro() {
 
     } catch (error) {
       console.error('Sanitization failed:', error);
+      
+      // Record redaction error
+      if (recordId) {
+        recordRedactionResults(recordId, {
+          appliedRedactions: [],
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+      
       // Show error to user
       alert(`Sanitization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
       setFileStates(prev => prev.map((state, i) => 
@@ -265,16 +406,33 @@ export default function CleanSharePro() {
           </a>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
             {presets.length > 0 && (
-              <select 
-                value={presetId} 
-                onChange={(e) => setPresetId(e.target.value)}
-                className="form-select"
-                style={{ minWidth: '150px' }}
-              >
-                {presets.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-xs)' }}>
+                <select 
+                  value={presetId} 
+                  onChange={(e) => setPresetId(e.target.value)}
+                  className="form-select"
+                  style={{ minWidth: '180px' }}
+                >
+                  {presets.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} {p.domain && p.domain !== 'General' ? `(${p.domain})` : ''}
+                    </option>
+                  ))}
+                </select>
+                {(() => {
+                  const currentPreset = presets.find(p => p.id === presetId);
+                  return currentPreset?.description ? (
+                    <div style={{ 
+                      fontSize: 'var(--font-size-xs)', 
+                      color: 'var(--text-secondary)', 
+                      maxWidth: '200px',
+                      lineHeight: '1.2'
+                    }}>
+                      {currentPreset.description}
+                    </div>
+                  ) : null;
+                })()}
+              </div>
             )}
             <button
               onClick={() => setProUnlocked(!proUnlocked)}
@@ -283,13 +441,28 @@ export default function CleanSharePro() {
               {proUnlocked ? '✓ Pro Unlocked' : '🔓 Unlock Pro'}
             </button>
             {proUnlocked && (
-              <button
-                onClick={() => setShowPresetEditor(true)}
-                className="btn btn-primary btn-sm"
-              >
-                Manage Presets
-              </button>
+              <>
+                <button
+                  onClick={() => setShowPresetEditor(true)}
+                  className="btn btn-primary btn-sm"
+                >
+                  Manage Presets
+                </button>
+                <button
+                  onClick={() => setShowHistoryDashboard(true)}
+                  className="btn btn-secondary btn-sm"
+                >
+                  📊 History
+                </button>
+              </>
             )}
+            <button
+              onClick={() => setShowKeyboardHelp(true)}
+              className="btn btn-outline btn-sm"
+              title="Keyboard Shortcuts (Press ? for help)"
+            >
+              ⌨️
+            </button>
           </div>
         </div>
       </header>
@@ -477,7 +650,7 @@ export default function CleanSharePro() {
                                   type="checkbox"
                                   checked={currentFileState.selected[detection.id] || false}
                                   onChange={(e) => {
-                                    setFileStates(prev => prev.map((state, i) => 
+                                    const newStates = fileStates.map((state, i) => 
                                       i === currentFileIndex ? {
                                         ...state,
                                         selected: {
@@ -485,7 +658,12 @@ export default function CleanSharePro() {
                                           [detection.id]: e.target.checked
                                         }
                                       } : state
-                                    ));
+                                    );
+                                    updateFileStates(
+                                      newStates,
+                                      'toggle-detection',
+                                      `${e.target.checked ? 'Selected' : 'Deselected'} ${detection.kind} detection`
+                                    );
                                   }}
                                 />
                                 <div>
@@ -500,7 +678,7 @@ export default function CleanSharePro() {
                               <select
                                 value={currentFileState.actions[detection.id]?.style || 'BOX'}
                                 onChange={(e) => {
-                                  setFileStates(prev => prev.map((state, i) => 
+                                  const newStates = fileStates.map((state, i) => 
                                     i === currentFileIndex ? {
                                       ...state,
                                       actions: {
@@ -511,7 +689,12 @@ export default function CleanSharePro() {
                                         }
                                       }
                                     } : state
-                                  ));
+                                  );
+                                  updateFileStates(
+                                    newStates,
+                                    'change-redaction-style',
+                                    `Changed ${detection.kind} redaction style to ${e.target.value}`
+                                  );
                                 }}
                                 className="form-select"
                                 style={{ minWidth: '120px' }}
@@ -596,44 +779,52 @@ export default function CleanSharePro() {
           </div>
         )}
 
-        {/* Preset Management Modal */}
-        {showPresetEditor && proUnlocked && (
-          <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000
-          }}>
-            <div className="card" style={{ minWidth: '500px', maxWidth: '90vw', maxHeight: '90vh', overflow: 'auto' }}>
-              <div className="card-header">
-                <h3 className="card-title">Manage Presets</h3>
-                <p className="card-subtitle">Create and manage detection presets</p>
-              </div>
-              <div className="card-body">
-                <div className="alert alert-info">
-                  <strong>Pro Feature</strong>
-                  <p style={{ margin: 0, marginTop: 'var(--space-xs)' }}>
-                    Preset management is available in the Pro version.
-                  </p>
-                </div>
-              </div>
-              <div className="card-footer">
-                <button
-                  onClick={() => setShowPresetEditor(false)}
-                  className="btn btn-ghost"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
+        {/* Enhanced Preset Management Modal */}
+        <PresetManager
+          isOpen={showPresetEditor && proUnlocked}
+          onClose={() => setShowPresetEditor(false)}
+          currentPresetId={presetId}
+          onPresetSelect={(id) => {
+            setPresetId(id);
+            loadPresets(); // Refresh presets list in case new ones were created
+            setShowPresetEditor(false);
+          }}
+        />
+
+        {/* Processing History Dashboard */}
+        <HistoryDashboard
+          isOpen={showHistoryDashboard && proUnlocked}
+          onClose={() => setShowHistoryDashboard(false)}
+        />
+
+        {/* Undo/Redo Manager */}
+        <UndoRedoManager
+          isOpen={showUndoRedoManager}
+          onClose={() => setShowUndoRedoManager(false)}
+          onUndo={() => undoRedoSystem.undo()}
+          onRedo={() => undoRedoSystem.redo()}
+          canUndo={undoRedoSystem.canUndo}
+          canRedo={undoRedoSystem.canRedo}
+          historyPreview={undoRedoSystem.getHistoryPreview(20)}
+          onJumpTo={(index) => undoRedoSystem.jumpToIndex(index)}
+        />
+
+        {/* Floating Undo/Redo Controls */}
+        {fileStates.length > 0 && (
+          <UndoRedoControls
+            onUndo={() => undoRedoSystem.undo()}
+            onRedo={() => undoRedoSystem.redo()}
+            canUndo={undoRedoSystem.canUndo}
+            canRedo={undoRedoSystem.canRedo}
+            onOpenHistory={() => setShowUndoRedoManager(true)}
+          />
         )}
+
+        {/* Keyboard Shortcuts Help */}
+        <KeyboardShortcutsHelp
+          isOpen={showKeyboardHelp}
+          onClose={() => setShowKeyboardHelp(false)}
+        />
       </div>
     </div>
   );

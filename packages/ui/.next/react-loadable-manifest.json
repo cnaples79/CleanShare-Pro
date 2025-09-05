@@ -10,5 +10,9 @@
     "files": [
       "static/chunks/node_modules_pnpm_next_14_1_0__babel_core_7_28_3_react-dom_18_2_0_react_18_2_0__react_18_2_0_-c1a486.js"
     ]
+  },
+  "index.tsx -> @cleanshare/core-detect": {
+    "id": "index.tsx -> @cleanshare/core-detect",
+    "files": []
   }
 }
