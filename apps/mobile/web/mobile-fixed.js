@@ -153,9 +153,12 @@ async function analyzePdfWithPdfjs(file) {
           const width = item.width || 50;
           const height = item.height || 12;
           
+          // PDF coordinate system: (0,0) is bottom-left
+          // pdfjs gives us text coordinates where (0,0) is top-left
+          // We need to store normalized coordinates that work with pdf-lib
           const box = {
             x: x / viewport.width,
-            y: (viewport.height - y - height) / viewport.height, // Flip Y coordinate
+            y: y / viewport.height, // Don't flip Y - keep original pdfjs coordinates 
             width: width / viewport.width,
             height: height / viewport.height
           };
@@ -249,10 +252,13 @@ async function redactPdfFile(file, detections, options = {}) {
     const { width: pageWidth, height: pageHeight } = page.getSize();
     
     // Convert normalized coordinates to PDF coordinates
+    // PDF-lib uses bottom-left origin, pdfjs uses top-left origin
     const x = detection.box.x * pageWidth;
-    const y = detection.box.y * pageHeight;
+    const y = pageHeight - (detection.box.y * pageHeight) - (detection.box.height * pageHeight); // Flip Y coordinate for pdf-lib
     const width = detection.box.width * pageWidth;
     const height = detection.box.height * pageHeight;
+    
+    console.log(`Mobile: Drawing redaction at (${x.toFixed(2)}, ${y.toFixed(2)}) size ${width.toFixed(2)}x${height.toFixed(2)} on page ${pageIndex + 1}`);
     
     // Draw redaction rectangle
     page.drawRectangle({
