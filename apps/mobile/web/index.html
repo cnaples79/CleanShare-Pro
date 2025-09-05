@@ -7,6 +7,20 @@
   <meta name="format-detection" content="telephone=no">
   <meta name="msapplication-tap-highlight" content="no">
 
+  <!-- React for Phase 2.4 Enhanced Mobile Features -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script>
+    // Verify React loaded
+    window.addEventListener('load', () => {
+      console.log('Window loaded - React available:', typeof React !== 'undefined');
+      console.log('ReactDOM available:', typeof ReactDOM !== 'undefined');
+      if (typeof React !== 'undefined') {
+        console.log('React version:', React.version);
+      }
+    });
+  </script>
+  
   <!-- Capacitor -->
   <script type="module" src="/capacitor.js"></script>
   <script src="https://unpkg.com/tesseract.js@5/dist/tesseract.min.js"></script>
@@ -25,6 +39,7 @@
     console.log('Mobile: pdf-lib loaded successfully', typeof PDFLib !== 'undefined');
   </script>
   <script type="module" src="/main.js"></script>
+  <script src="/mobile-app.js"></script>
 
   <style>
     /* Modern Mobile Design System for CleanShare Pro */
@@ -499,6 +514,82 @@
       }
     }
 
+    /* Form Elements for React Components */
+    .form-input,
+    .form-select {
+      width: 100%;
+      padding: var(--space-sm);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-md);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-size: var(--font-size-base);
+      font-family: var(--font-family);
+      transition: border-color var(--transition-fast);
+    }
+
+    .form-input:focus,
+    .form-select:focus {
+      outline: none;
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+    .form-input::placeholder {
+      color: var(--text-secondary);
+    }
+
+    /* Modal Overlay Improvements */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: var(--space-md);
+    }
+
+    /* Responsive Grid System */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--space-md);
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: var(--space-sm);
+    }
+
+    /* Touch-friendly checkboxes and radio buttons */
+    input[type="checkbox"],
+    input[type="radio"] {
+      width: 20px;
+      height: 20px;
+      accent-color: var(--color-primary);
+    }
+
+    /* Progress and Loading Enhancements */
+    .progress-bar {
+      width: 100%;
+      height: 6px;
+      background: var(--bg-secondary);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--color-primary), var(--color-secondary));
+      transition: width var(--transition-normal);
+    }
+
     /* Dark mode support */
     @media (prefers-color-scheme: dark) {
       :root {
@@ -515,6 +606,12 @@
 
       body {
         background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
+      }
+
+      .form-input,
+      .form-select {
+        background: var(--bg-secondary);
+        border-color: var(--border-medium);
       }
     }
   </style>
@@ -580,8 +677,32 @@
         console.error('App div not found!');
         return;
       }
-      
-      try {
+
+      // Try full React version with Phase 2.4 features
+      if (typeof React !== 'undefined' && typeof ReactDOM !== 'undefined' && window.MobileCleanSharePro) {
+        console.log('Mobile: Attempting full React-based initialization with Phase 2.4 features...');
+        try {
+          window.MobileCleanSharePro.initializeMobileApp().then(success => {
+            if (success) {
+              console.log('Mobile: Full React initialization successful');
+            } else {
+              console.log('Mobile: Full React initialization returned false, using fallback');
+              initializeFallback();
+            }
+          }).catch(error => {
+            console.warn('Mobile: Full React initialization failed, falling back to vanilla:', error);
+            initializeFallback();
+          });
+          return; // Exit early, async initialization in progress
+        } catch (error) {
+          console.warn('Mobile: Full React initialization threw error, falling back to vanilla:', error);
+        }
+      }
+
+      // Define fallback function
+      function initializeFallback() {
+        console.log('Mobile: Using vanilla implementation');
+        try {
         appDiv.innerHTML = `
           <div class="mobile-header">
             <h1>CleanShare Pro</h1>
@@ -646,7 +767,11 @@
             <button class="btn btn-primary" onclick="location.reload()">🔄 Retry</button>
           </div>
         `;
+        }
       }
+
+      // Call fallback if React was not used
+      initializeFallback();
     }
     
     function selectFile() {
