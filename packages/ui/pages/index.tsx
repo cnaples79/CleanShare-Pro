@@ -16,6 +16,33 @@ import { useUndoRedo } from '../src/hooks/useUndoRedo';
 
 // Vanilla React/Next.js - No Ionic/Capacitor imports for web app
 
+// Simple Error Boundary Component
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode; fallback?: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode; fallback?: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('Error caught by boundary:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback || <div>Something went wrong.</div>;
+    }
+
+    return this.props.children;
+  }
+}
+
 interface FileState {
   file: File;
   detections: Detection[];
@@ -49,7 +76,8 @@ export default function CleanSharePro() {
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
-  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+  const [isMobile, setIsMobile] = useState(false);
+  const [isClient, setIsClient] = useState(false);
 
   // Undo/Redo system for file states
   const undoRedoSystem = useUndoRedo<FileState[]>([], { maxHistorySize: 100 });
@@ -86,6 +114,18 @@ export default function CleanSharePro() {
 
   useEffect(() => {
     loadPresets();
+    
+    // Mark as client-side and set mobile state to avoid hydration mismatch
+    setIsClient(true);
+    setIsMobile(window.innerWidth <= 768);
+    
+    // Add resize listener
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   // Keyboard shortcuts
@@ -274,6 +314,16 @@ export default function CleanSharePro() {
     setToastMessage(message);
     setShowToast(true);
   };
+
+  // Auto-hide toast after 2 seconds with proper cleanup
+  useEffect(() => {
+    if (showToast) {
+      const timer = setTimeout(() => {
+        setShowToast(false);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [showToast]);
 
   const handleSanitize = async (fileIndex: number) => {
     const fileState = fileStates[fileIndex];
@@ -507,7 +557,7 @@ export default function CleanSharePro() {
       {/* Main Content */}
       <div className="main-content">
         {/* Enhanced File Upload Section - Mobile Optimized */}
-        {isMobile ? (
+        {isClient && isMobile && (
           <div className="card" style={{ marginBottom: 'var(--space-xl)' }}>
             <div className="card-header">
               <h2 className="card-title">Upload Files</h2>
@@ -579,8 +629,10 @@ export default function CleanSharePro() {
               )}
             </div>
           </div>
-        ) : (
-          /* Web Version - Keep Original */
+        )}
+
+        {/* Web Version or Initial Server Render */}
+        {(!isClient || !isMobile) && (
           <div className="card" style={{ marginBottom: 'var(--space-xl)' }}>
             <div className="card-header">
               <h2 className="card-title">Upload Files</h2>
@@ -892,54 +944,72 @@ export default function CleanSharePro() {
         )}
 
         {/* Enhanced Preset Management Modal */}
-        <PresetManager
-          isOpen={showPresetEditor && proUnlocked}
-          onClose={() => setShowPresetEditor(false)}
-          currentPresetId={presetId}
-          onPresetSelect={(id) => {
-            setPresetId(id);
-            loadPresets(); // Refresh presets list in case new ones were created
-            setShowPresetEditor(false);
-          }}
-        />
+        {showPresetEditor && proUnlocked && (
+          <ErrorBoundary fallback={<div>Preset Manager failed to load</div>}>
+            <PresetManager
+              isOpen={true}
+              onClose={() => setShowPresetEditor(false)}
+              currentPresetId={presetId}
+              onPresetSelect={(id) => {
+                setPresetId(id);
+                loadPresets(); // Refresh presets list in case new ones were created
+                setShowPresetEditor(false);
+              }}
+            />
+          </ErrorBoundary>
+        )}
 
         {/* Processing History Dashboard */}
-        <HistoryDashboard
-          isOpen={showHistoryDashboard && proUnlocked}
-          onClose={() => setShowHistoryDashboard(false)}
-        />
+        {showHistoryDashboard && proUnlocked && (
+          <ErrorBoundary fallback={<div>History Dashboard failed to load</div>}>
+            <HistoryDashboard
+              isOpen={true}
+              onClose={() => setShowHistoryDashboard(false)}
+            />
+          </ErrorBoundary>
+        )}
 
         {/* Undo/Redo Manager */}
-        <UndoRedoManager
-          isOpen={showUndoRedoManager}
-          onClose={() => setShowUndoRedoManager(false)}
-          onUndo={() => undoRedoSystem.undo()}
-          onRedo={() => undoRedoSystem.redo()}
-          canUndo={undoRedoSystem.canUndo}
-          canRedo={undoRedoSystem.canRedo}
-          historyPreview={undoRedoSystem.getHistoryPreview(20)}
-          onJumpTo={(index) => undoRedoSystem.jumpToIndex(index)}
-        />
+        {showUndoRedoManager && (
+          <ErrorBoundary fallback={<div>Undo/Redo Manager failed to load</div>}>
+            <UndoRedoManager
+              isOpen={true}
+              onClose={() => setShowUndoRedoManager(false)}
+              onUndo={() => undoRedoSystem.undo()}
+              onRedo={() => undoRedoSystem.redo()}
+              canUndo={undoRedoSystem.canUndo}
+              canRedo={undoRedoSystem.canRedo}
+              historyPreview={undoRedoSystem.getHistoryPreview(20)}
+              onJumpTo={(index) => undoRedoSystem.jumpToIndex(index)}
+            />
+          </ErrorBoundary>
+        )}
 
         {/* Floating Undo/Redo Controls */}
         {fileStates.length > 0 && (
-          <UndoRedoControls
-            onUndo={() => undoRedoSystem.undo()}
-            onRedo={() => undoRedoSystem.redo()}
-            canUndo={undoRedoSystem.canUndo}
-            canRedo={undoRedoSystem.canRedo}
-            onOpenHistory={() => setShowUndoRedoManager(true)}
-          />
+          <ErrorBoundary fallback={<div>Undo/Redo Controls failed to load</div>}>
+            <UndoRedoControls
+              onUndo={() => undoRedoSystem.undo()}
+              onRedo={() => undoRedoSystem.redo()}
+              canUndo={undoRedoSystem.canUndo}
+              canRedo={undoRedoSystem.canRedo}
+              onOpenHistory={() => setShowUndoRedoManager(true)}
+            />
+          </ErrorBoundary>
         )}
 
         {/* Keyboard Shortcuts Help */}
-        <KeyboardShortcutsHelp
-          isOpen={showKeyboardHelp}
-          onClose={() => setShowKeyboardHelp(false)}
-        />
+        {showKeyboardHelp && (
+          <ErrorBoundary fallback={<div>Keyboard Help failed to load</div>}>
+            <KeyboardShortcutsHelp
+              isOpen={true}
+              onClose={() => setShowKeyboardHelp(false)}
+            />
+          </ErrorBoundary>
+        )}
 
         {/* Mobile-Specific Components - Vanilla Implementation */}
-        {isMobile && (
+        {isClient && isMobile && (
           <>
             {/* Floating Action Button for Quick File Upload */}
             <div 
