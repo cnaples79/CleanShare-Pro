@@ -4,12 +4,27 @@
   "private": true,
   "description": "Capacitor wrapper for the CleanShare Pro mobile application.",
   "scripts": {
-    "build": "echo 'Please run the UI build and copy it into apps/mobile/web before packaging'"
+    "build": "echo 'Please run the UI build and copy it into apps/mobile/web before packaging'",
+    "serve": "node serve-mobile.js",
+    "dev": "npm run serve",
+    "start": "npm run serve",
+    "ios": "npx cap run ios",
+    "android": "npx cap run android",
+    "sync": "npx cap sync",
+    "build:ios": "npx cap build ios", 
+    "build:android": "npx cap build android"
   },
   "dependencies": {
     "@capacitor/android": "^7.4.3",
     "@capacitor/core": "^7.4.3",
+    "@capacitor/filesystem": "^7.1.4",
+    "@capacitor/haptics": "^7.0.2",
     "@capacitor/ios": "^7.4.3",
-    "@cleanshare/ui": "workspace:*"
+    "@capacitor/share": "^7.0.2",
+    "@capacitor/splash-screen": "^7.0.3",
+    "@capacitor/status-bar": "^7.0.3",
+    "@capacitor/toast": "^7.0.2",
+    "@cleanshare/ui": "workspace:*",
+    "@ionic/core": "^8.7.3"
   }
 }

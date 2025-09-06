@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <title>CleanShare Pro</title>
+  <meta name="viewport" content="viewport-fit=cover, width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="msapplication-tap-highlight" content="no">
+
+  <!-- Ionic Framework -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@ionic/core/css/ionic.bundle.css" />
+  <script type="module" src="https://cdn.jsdelivr.net/npm/@ionic/core/dist/ionic/ionic.esm.js"></script>
+  <script nomodule src="https://cdn.jsdelivr.net/npm/@ionic/core/dist/ionic/ionic.js"></script>
+
+  <!-- Capacitor and Dependencies -->
+  <script type="module" src="/capacitor.js"></script>
+  <script src="https://unpkg.com/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script type="module">
+    import * as pdfjs from 'https://unpkg.com/pdfjs-dist@5.4.149/build/pdf.min.mjs';
+    pdfjs.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@5.4.149/build/pdf.worker.min.mjs';
+    window.pdfjsLib = pdfjs;
+    console.log('Ionic Mobile: PDF.js loaded successfully', pdfjs.version);
+  </script>
+  <script type="module" src="/main.js"></script>
+
+  <!-- Custom Ionic Styling -->
+  <style>
+    :root {
+      /* CleanShare Pro Theme */
+      --ion-color-primary: #2563eb;
+      --ion-color-primary-rgb: 37, 99, 235;
+      --ion-color-primary-contrast: #ffffff;
+      --ion-color-primary-contrast-rgb: 255, 255, 255;
+      --ion-color-primary-shade: #2152cc;
+      --ion-color-primary-tint: #3b73ed;
+
+      --ion-color-secondary: #10b981;
+      --ion-color-secondary-rgb: 16, 185, 129;
+      --ion-color-secondary-contrast: #ffffff;
+      --ion-color-secondary-contrast-rgb: 255, 255, 255;
+      --ion-color-secondary-shade: #0ea372;
+      --ion-color-secondary-tint: #28c18e;
+
+      --ion-color-success: #10b981;
+      --ion-color-success-rgb: 16, 185, 129;
+      
+      --ion-color-warning: #f59e0b;
+      --ion-color-warning-rgb: 245, 158, 11;
+      
+      --ion-color-danger: #ef4444;
+      --ion-color-danger-rgb: 239, 68, 68;
+
+      /* Custom font */
+      --ion-font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    /* Custom styling for CleanShare Pro */
+    .privacy-gradient {
+      background: linear-gradient(135deg, var(--ion-color-primary) 0%, var(--ion-color-secondary) 100%);
+    }
+
+    .file-drop-area {
+      border: 2px dashed var(--ion-color-medium);
+      border-radius: 12px;
+      padding: 2rem;
+      text-align: center;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      background: var(--ion-color-light);
+      margin: 1rem 0;
+    }
+
+    .file-drop-area:hover {
+      border-color: var(--ion-color-primary);
+      background: rgba(37, 99, 235, 0.05);
+      transform: translateY(-2px);
+    }
+
+    .file-drop-area.dragover {
+      border-color: var(--ion-color-secondary);
+      background: rgba(16, 185, 129, 0.1);
+      transform: scale(1.02);
+    }
+
+    .detection-card {
+      border-left: 4px solid var(--ion-color-warning);
+      margin: 0.5rem 0;
+    }
+
+    .detection-card.high-confidence {
+      border-left-color: var(--ion-color-danger);
+    }
+
+    .detection-card.medium-confidence {
+      border-left-color: var(--ion-color-warning);
+    }
+
+    .detection-card.low-confidence {
+      border-left-color: var(--ion-color-medium);
+    }
+
+    .processing-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 1rem;
+      background: rgba(37, 99, 235, 0.1);
+      border-radius: 8px;
+      margin: 1rem 0;
+    }
+
+    .status-log {
+      background: var(--ion-color-light);
+      border-radius: 8px;
+      padding: 1rem;
+      max-height: 400px;
+      overflow-y: auto;
+      font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+      font-size: 0.875rem;
+      line-height: 1.4;
+    }
+
+    .fab-download {
+      --background: var(--ion-color-success);
+      --color: white;
+    }
+
+    /* Native platform optimizations */
+    ion-content {
+      --padding-start: 16px;
+      --padding-end: 16px;
+      --padding-top: 16px;
+      --padding-bottom: 16px;
+    }
+
+    .ios ion-header {
+      border-bottom: none;
+    }
+
+    .md ion-header {
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+
+<body>
+  <ion-app>
+    <ion-header>
+      <ion-toolbar class="privacy-gradient">
+        <ion-title style="color: white; font-weight: 600;">
+          <ion-icon name="shield-checkmark-outline" style="margin-right: 8px;"></ion-icon>
+          CleanShare Pro
+        </ion-title>
+        <ion-buttons slot="end">
+          <ion-button fill="clear" onclick="showSettings()" style="color: white;">
+            <ion-icon slot="icon-only" name="settings-outline"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content>
+      <!-- Upload Section -->
+      <ion-card>
+        <ion-card-header>
+          <ion-card-subtitle>Privacy Protection</ion-card-subtitle>
+          <ion-card-title>
+            <ion-icon name="cloud-upload-outline" style="margin-right: 8px;"></ion-icon>
+            Select Files
+          </ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <div class="file-drop-area" onclick="selectFiles()">
+            <ion-icon name="document-outline" size="large" style="color: var(--ion-color-medium); margin-bottom: 1rem;"></ion-icon>
+            <p style="margin: 0; font-weight: 500; color: var(--ion-color-dark);">
+              Tap to select files
+            </p>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.875rem; color: var(--ion-color-medium);">
+              Images, PDFs up to 10MB each
+            </p>
+          </div>
+          
+          <input type="file" id="fileInput" multiple accept="image/*,.pdf" style="display: none;" onchange="handleFiles(this.files)">
+          
+          <ion-button expand="full" fill="outline" onclick="testNativeFeatures()" style="margin-top: 1rem;">
+            <ion-icon name="flask-outline" slot="start"></ion-icon>
+            Test Native Features
+          </ion-button>
+        </ion-card-content>
+      </ion-card>
+
+      <!-- Processing Status -->
+      <ion-card id="statusCard" style="display: none;">
+        <ion-card-header>
+          <ion-card-title>
+            <ion-icon name="analytics-outline" style="margin-right: 8px;"></ion-icon>
+            Processing Status
+          </ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <div id="statusContent" class="status-log"></div>
+        </ion-card-content>
+      </ion-card>
+
+      <!-- Results Section -->
+      <div id="resultsSection" style="display: none;">
+        <ion-card>
+          <ion-card-header>
+            <ion-card-title>
+              <ion-icon name="shield-checkmark-outline" style="margin-right: 8px;"></ion-icon>
+              Detection Results
+            </ion-card-title>
+          </ion-card-header>
+          <ion-card-content id="resultsContent">
+            <!-- Results will be populated here -->
+          </ion-card-content>
+        </ion-card>
+      </div>
+
+      <!-- Platform Info -->
+      <ion-card>
+        <ion-card-header>
+          <ion-card-subtitle>Platform Information</ion-card-subtitle>
+          <ion-card-title>System Status</ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <ion-item lines="none">
+            <ion-icon name="phone-portrait-outline" slot="start"></ion-icon>
+            <ion-label>
+              <h3>Platform</h3>
+              <p id="platformInfo">Loading...</p>
+            </ion-label>
+          </ion-item>
+          <ion-item lines="none">
+            <ion-icon name="code-outline" slot="start"></ion-icon>
+            <ion-label>
+              <h3>CleanShare API</h3>
+              <p id="apiStatus">Loading...</p>
+            </ion-label>
+          </ion-item>
+          <ion-item lines="none">
+            <ion-icon name="hardware-chip-outline" slot="start"></ion-icon>
+            <ion-label>
+              <h3>OCR Engine</h3>
+              <p id="ocrStatus">Tesseract.js + PDF.js</p>
+            </ion-label>
+          </ion-item>
+        </ion-card-content>
+      </ion-card>
+
+      <!-- Floating Action Button for Downloads -->
+      <ion-fab vertical="bottom" horizontal="end" slot="fixed" id="downloadFab" style="display: none;">
+        <ion-fab-button class="fab-download" onclick="showDownloads()">
+          <ion-icon name="download-outline"></ion-icon>
+        </ion-fab-button>
+      </ion-fab>
+    </ion-content>
+
+    <!-- Settings Modal -->
+    <ion-modal id="settingsModal">
+      <ion-header>
+        <ion-toolbar>
+          <ion-title>Settings</ion-title>
+          <ion-buttons slot="end">
+            <ion-button onclick="closeSettings()">
+              <ion-icon name="close"></ion-icon>
+            </ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content>
+        <ion-list>
+          <ion-item>
+            <ion-toggle id="hapticToggle" checked></ion-toggle>
+            <ion-label slot="start">
+              <h2>Haptic Feedback</h2>
+              <p>Vibration on interactions</p>
+            </ion-label>
+          </ion-item>
+          <ion-item>
+            <ion-toggle id="toastToggle" checked></ion-toggle>
+            <ion-label slot="start">
+              <h2>Toast Notifications</h2>
+              <p>Show processing notifications</p>
+            </ion-label>
+          </ion-item>
+          <ion-item>
+            <ion-select id="confidenceThreshold" value="0.7" placeholder="Select Threshold">
+              <ion-select-option value="0.5">50% - Permissive</ion-select-option>
+              <ion-select-option value="0.7">70% - Balanced</ion-select-option>
+              <ion-select-option value="0.9">90% - Strict</ion-select-option>
+            </ion-select>
+            <ion-label slot="start">
+              <h2>Detection Threshold</h2>
+              <p>Minimum confidence for alerts</p>
+            </ion-label>
+          </ion-item>
+        </ion-list>
+      </ion-content>
+    </ion-modal>
+
+    <!-- Downloads Modal -->
+    <ion-modal id="downloadsModal">
+      <ion-header>
+        <ion-toolbar>
+          <ion-title>Downloads</ion-title>
+          <ion-buttons slot="end">
+            <ion-button onclick="closeDownloads()">
+              <ion-icon name="close"></ion-icon>
+            </ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content>
+        <div id="downloadsList">
+          <ion-item>
+            <ion-label>
+              <h2>No files processed yet</h2>
+              <p>Upload and process files to see downloads here</p>
+            </ion-label>
+          </ion-item>
+        </div>
+      </ion-content>
+    </ion-modal>
+  </ion-app>
+
+  <script type="module">
+    // Ionic Mobile App Implementation
+    import { 
+      Filesystem, 
+      Directory, 
+      Encoding 
+    } from 'https://cdn.skypack.dev/@capacitor/filesystem';
+    import { Share } from 'https://cdn.skypack.dev/@capacitor/share';
+    import { Toast } from 'https://cdn.skypack.dev/@capacitor/toast';
+    import { Haptics, ImpactStyle } from 'https://cdn.skypack.dev/@capacitor/haptics';
+    import { StatusBar, Style } from 'https://cdn.skypack.dev/@capacitor/status-bar';
+
+    let processedFiles = new Map();
+    let processingStats = { total: 0, successful: 0, detections: 0 };
+
+    // Initialize app when DOM is ready
+    document.addEventListener('DOMContentLoaded', async () => {
+      console.log('Ionic Mobile: Initializing CleanShare Pro...');
+      
+      // Wait for Ionic and Capacitor to load
+      await customElements.whenDefined('ion-app');
+      
+      // Initialize platform info
+      updatePlatformInfo();
+      
+      // Configure status bar for native platforms
+      if (window.Capacitor?.isNativePlatform()) {
+        try {
+          await StatusBar.setStyle({ style: Style.Light });
+          await StatusBar.setBackgroundColor({ color: '#2563eb' });
+        } catch (e) {
+          console.log('StatusBar configuration not available');
+        }
+      }
+      
+      // Show welcome toast
+      showToast('CleanShare Pro ready! 🔒', 'success');
+      
+      console.log('Ionic Mobile: Initialization complete');
+    });
+
+    // File selection
+    window.selectFiles = () => {
+      triggerHaptics();
+      document.getElementById('fileInput').click();
+    };
+
+    // File handling with native optimizations
+    window.handleFiles = async (files) => {
+      if (!files?.length) {
+        showToast('No files selected', 'warning');
+        return;
+      }
+
+      triggerHaptics();
+      showToast(`Processing ${files.length} file(s)...`, 'primary');
+      
+      const statusCard = document.getElementById('statusCard');
+      const statusContent = document.getElementById('statusContent');
+      const resultsSection = document.getElementById('resultsSection');
+      const resultsContent = document.getElementById('resultsContent');
+      const downloadFab = document.getElementById('downloadFab');
+      
+      // Show status card
+      statusCard.style.display = 'block';
+      statusContent.innerHTML = '';
+      resultsSection.style.display = 'none';
+      resultsContent.innerHTML = '';
+      
+      // Processing indicator
+      statusContent.innerHTML = `
+        <div class="processing-indicator">
+          <ion-spinner name="crescent"></ion-spinner>
+          <strong>Processing ${files.length} file(s)...</strong>
+        </div>
+      `;
+
+      processingStats = { total: files.length, successful: 0, detections: 0 };
+      const results = [];
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const fileSize = (file.size / (1024 * 1024)).toFixed(2);
+        
+        // Add file info to status
+        statusContent.innerHTML += `
+          <ion-item lines="none" style="--padding-start: 0; margin: 0.5rem 0;">
+            <ion-icon name="document-outline" slot="start" style="color: var(--ion-color-primary);"></ion-icon>
+            <ion-label>
+              <h3>${file.name}</h3>
+              <p>${file.type || 'Unknown'} • ${fileSize} MB</p>
+            </ion-label>
+            <ion-spinner name="dots" slot="end" id="spinner-${i}"></ion-spinner>
+          </ion-item>
+        `;
+
+        try {
+          if (!window.CleanSharePro) {
+            throw new Error('CleanShare Pro API not loaded');
+          }
+
+          // Process file
+          const result = await window.CleanSharePro.processFile(file);
+          
+          // Hide spinner
+          const spinner = document.getElementById(`spinner-${i}`);
+          if (spinner) spinner.style.display = 'none';
+          
+          if (result.success) {
+            processingStats.successful++;
+            processingStats.detections += result.detections.length;
+            
+            // Apply redactions if needed
+            if (result.detections.length > 0) {
+              const actions = result.detections.map(d => ({ 
+                detectionId: d.id, 
+                style: 'BOX' 
+              }));
+              
+              const redactionResult = await window.CleanSharePro.applyRedactions(
+                file, 
+                actions, 
+                { style: 'BOX', detections: result.detections }
+              );
+              
+              if (redactionResult.success) {
+                // Store for download
+                const mimeType = file.type.startsWith('image/') ? file.type : 'application/pdf';
+                processedFiles.set(redactionResult.filename, {
+                  data: redactionResult.data,
+                  mimeType: mimeType,
+                  originalName: file.name,
+                  detections: result.detections
+                });
+                
+                results.push({
+                  original: file.name,
+                  sanitized: redactionResult.filename,
+                  detections: result.detections,
+                  success: true
+                });
+              }
+            } else {
+              results.push({
+                original: file.name,
+                sanitized: null,
+                detections: [],
+                success: true
+              });
+            }
+          } else {
+            results.push({
+              original: file.name,
+              error: result.error,
+              success: false
+            });
+          }
+        } catch (error) {
+          console.error('Processing error:', error);
+          results.push({
+            original: file.name,
+            error: error.message,
+            success: false
+          });
+        }
+      }
+
+      // Show results
+      displayResults(results);
+      
+      // Show download FAB if we have processed files
+      if (processedFiles.size > 0) {
+        downloadFab.style.display = 'block';
+      }
+      
+      // Success haptics and toast
+      triggerHaptics();
+      showToast(`Processing complete! ${processingStats.detections} sensitive items found.`, 'success');
+    };
+
+    // Display processing results with native UI
+    function displayResults(results) {
+      const resultsSection = document.getElementById('resultsSection');
+      const resultsContent = document.getElementById('resultsContent');
+      
+      resultsSection.style.display = 'block';
+      
+      let html = `
+        <div style="text-align: center; margin-bottom: 1rem;">
+          <ion-chip color="primary">
+            <ion-icon name="document-text-outline"></ion-icon>
+            <ion-label>${processingStats.total} files processed</ion-label>
+          </ion-chip>
+          <ion-chip color="success">
+            <ion-icon name="checkmark-circle-outline"></ion-icon>
+            <ion-label>${processingStats.successful} successful</ion-label>
+          </ion-chip>
+          <ion-chip color="warning">
+            <ion-icon name="warning-outline"></ion-icon>
+            <ion-label>${processingStats.detections} detections</ion-label>
+          </ion-chip>
+        </div>
+      `;
+
+      results.forEach((result, index) => {
+        if (result.success && result.detections) {
+          html += `
+            <ion-card class="detection-card">
+              <ion-card-header>
+                <ion-card-title style="font-size: 1rem;">
+                  <ion-icon name="shield-checkmark-outline" style="color: var(--ion-color-success); margin-right: 8px;"></ion-icon>
+                  ${result.original}
+                </ion-card-title>
+              </ion-card-header>
+              <ion-card-content>
+          `;
+          
+          if (result.detections.length > 0) {
+            result.detections.forEach(detection => {
+              const confidenceColor = detection.confidence > 0.8 ? 'danger' : 
+                                     detection.confidence > 0.6 ? 'warning' : 'medium';
+              
+              html += `
+                <ion-chip color="${confidenceColor}" style="margin: 2px;">
+                  <ion-icon name="eye-outline"></ion-icon>
+                  <ion-label>${detection.kind}: ${Math.round(detection.confidence * 100)}%</ion-label>
+                </ion-chip>
+              `;
+            });
+            
+            if (result.sanitized) {
+              html += `
+                <br><br>
+                <ion-button 
+                  size="small" 
+                  fill="solid" 
+                  color="success" 
+                  onclick="downloadProcessedFile('${result.sanitized}')">
+                  <ion-icon name="download-outline" slot="start"></ion-icon>
+                  Download Clean File
+                </ion-button>
+              `;
+            }
+          } else {
+            html += `<p style="color: var(--ion-color-success); margin: 0;">✅ No sensitive information detected</p>`;
+          }
+          
+          html += `</ion-card-content></ion-card>`;
+        } else if (!result.success) {
+          html += `
+            <ion-item color="danger">
+              <ion-icon name="alert-circle-outline" slot="start"></ion-icon>
+              <ion-label>
+                <h3>${result.original}</h3>
+                <p>Error: ${result.error}</p>
+              </ion-label>
+            </ion-item>
+          `;
+        }
+      });
+      
+      resultsContent.innerHTML = html;
+    }
+
+    // Native download with sharing
+    window.downloadProcessedFile = async (filename) => {
+      triggerHaptics();
+      
+      try {
+        const fileData = processedFiles.get(filename);
+        if (!fileData) {
+          throw new Error('File not found');
+        }
+
+        if (window.Capacitor?.isNativePlatform()) {
+          // Native platform - use Filesystem + Share
+          const result = await Filesystem.writeFile({
+            path: filename,
+            data: Array.from(fileData.data).map(byte => String.fromCharCode(byte)).join(''),
+            directory: Directory.Cache,
+            encoding: Encoding.UTF8,
+            recursive: true
+          });
+
+          await Share.share({
+            title: 'CleanShare Pro - Sanitized File',
+            text: `Clean version of ${fileData.originalName}`,
+            url: result.uri,
+            dialogTitle: 'Share sanitized file'
+          });
+
+          showToast('File shared successfully!', 'success');
+        } else {
+          // Web fallback
+          window.CleanSharePro.downloadFile(fileData.data, filename, fileData.mimeType);
+          showToast('Download started!', 'success');
+        }
+      } catch (error) {
+        console.error('Download error:', error);
+        showToast(`Download failed: ${error.message}`, 'danger');
+      }
+    };
+
+    // Test native features
+    window.testNativeFeatures = async () => {
+      triggerHaptics();
+      
+      const statusCard = document.getElementById('statusCard');
+      const statusContent = document.getElementById('statusContent');
+      
+      statusCard.style.display = 'block';
+      statusContent.innerHTML = `
+        <div class="processing-indicator">
+          <ion-spinner name="crescent"></ion-spinner>
+          <strong>Testing native features...</strong>
+        </div>
+      `;
+
+      try {
+        let html = '';
+        
+        // Platform check
+        if (window.Capacitor?.isNativePlatform()) {
+          html += `
+            <ion-item color="success">
+              <ion-icon name="phone-portrait-outline" slot="start"></ion-icon>
+              <ion-label>
+                <h3>Native Platform</h3>
+                <p>Platform: ${window.Capacitor.getPlatform()}</p>
+              </ion-label>
+              <ion-icon name="checkmark-circle" slot="end"></ion-icon>
+            </ion-item>
+          `;
+
+          // Test Filesystem
+          try {
+            await Filesystem.readdir({ path: '', directory: Directory.Cache });
+            html += `
+              <ion-item color="success">
+                <ion-icon name="folder-outline" slot="start"></ion-icon>
+                <ion-label>
+                  <h3>Filesystem Access</h3>
+                  <p>✅ Available</p>
+                </ion-label>
+              </ion-item>
+            `;
+          } catch (e) {
+            html += `
+              <ion-item color="warning">
+                <ion-icon name="folder-outline" slot="start"></ion-icon>
+                <ion-label>
+                  <h3>Filesystem Access</h3>
+                  <p>⚠️ Limited: ${e.message}</p>
+                </ion-label>
+              </ion-item>
+            `;
+          }
+
+          // Test Share
+          html += `
+            <ion-item color="success">
+              <ion-icon name="share-outline" slot="start"></ion-icon>
+              <ion-label>
+                <h3>Native Sharing</h3>
+                <p>✅ Available</p>
+              </ion-label>
+            </ion-item>
+          `;
+
+        } else {
+          html += `
+            <ion-item color="primary">
+              <ion-icon name="globe-outline" slot="start"></ion-icon>
+              <ion-label>
+                <h3>Web Environment</h3>
+                <p>Using web fallbacks</p>
+              </ion-label>
+            </ion-item>
+          `;
+        }
+
+        // CleanShare API
+        html += `
+          <ion-item color="${window.CleanSharePro ? 'success' : 'danger'}">
+            <ion-icon name="code-outline" slot="start"></ion-icon>
+            <ion-label>
+              <h3>CleanShare Pro API</h3>
+              <p>${window.CleanSharePro ? '✅ Loaded' : '❌ Not loaded'}</p>
+            </ion-label>
+          </ion-item>
+        `;
+
+        statusContent.innerHTML = html;
+        showToast('Feature test complete!', 'success');
+        
+      } catch (error) {
+        statusContent.innerHTML = `
+          <ion-item color="danger">
+            <ion-icon name="alert-circle-outline" slot="start"></ion-icon>
+            <ion-label>
+              <h3>Test Failed</h3>
+              <p>${error.message}</p>
+            </ion-label>
+          </ion-item>
+        `;
+        showToast('Test failed', 'danger');
+      }
+    };
+
+    // Settings modal
+    window.showSettings = async () => {
+      triggerHaptics();
+      const modal = document.getElementById('settingsModal');
+      modal.present();
+    };
+
+    window.closeSettings = async () => {
+      const modal = document.getElementById('settingsModal');
+      modal.dismiss();
+    };
+
+    // Downloads modal
+    window.showDownloads = async () => {
+      triggerHaptics();
+      const modal = document.getElementById('downloadsModal');
+      const downloadsList = document.getElementById('downloadsList');
+      
+      let html = '';
+      if (processedFiles.size === 0) {
+        html = `
+          <ion-item>
+            <ion-icon name="document-outline" slot="start" style="color: var(--ion-color-medium);"></ion-icon>
+            <ion-label>
+              <h2>No files processed yet</h2>
+              <p>Upload and process files to see downloads here</p>
+            </ion-label>
+          </ion-item>
+        `;
+      } else {
+        processedFiles.forEach((fileData, filename) => {
+          html += `
+            <ion-item button onclick="downloadProcessedFile('${filename}')">
+              <ion-icon name="document-text-outline" slot="start" style="color: var(--ion-color-primary);"></ion-icon>
+              <ion-label>
+                <h3>${filename}</h3>
+                <p>Original: ${fileData.originalName}</p>
+                <p>${fileData.detections.length} detections redacted</p>
+              </ion-label>
+              <ion-icon name="download-outline" slot="end"></ion-icon>
+            </ion-item>
+          `;
+        });
+      }
+      
+      downloadsList.innerHTML = html;
+      modal.present();
+    };
+
+    window.closeDownloads = async () => {
+      const modal = document.getElementById('downloadsModal');
+      modal.dismiss();
+    };
+
+    // Utility functions
+    function updatePlatformInfo() {
+      const platformInfo = document.getElementById('platformInfo');
+      const apiStatus = document.getElementById('apiStatus');
+      
+      platformInfo.textContent = window.Capacitor 
+        ? `${window.Capacitor.getPlatform()} (Native)`
+        : 'Web Browser';
+      
+      apiStatus.textContent = window.CleanSharePro ? '✅ Ready' : '⏳ Loading...';
+      
+      // Recheck API status after a delay
+      setTimeout(() => {
+        apiStatus.textContent = window.CleanSharePro ? '✅ Ready' : '❌ Failed to load';
+      }, 2000);
+    }
+
+    async function showToast(message, color = 'primary') {
+      const toastEnabled = document.getElementById('toastToggle')?.checked !== false;
+      
+      if (toastEnabled) {
+        if (window.Capacitor?.isNativePlatform()) {
+          try {
+            await Toast.show({
+              text: message,
+              duration: 'short',
+              position: 'bottom'
+            });
+          } catch (e) {
+            // Fallback to Ionic toast
+            fallbackToast(message, color);
+          }
+        } else {
+          fallbackToast(message, color);
+        }
+      }
+    }
+
+    function fallbackToast(message, color) {
+      const toast = document.createElement('ion-toast');
+      toast.message = message;
+      toast.duration = 2000;
+      toast.color = color;
+      toast.position = 'bottom';
+      document.body.appendChild(toast);
+      toast.present();
+    }
+
+    async function triggerHaptics() {
+      const hapticEnabled = document.getElementById('hapticToggle')?.checked !== false;
+      
+      if (hapticEnabled && window.Capacitor?.isNativePlatform()) {
+        try {
+          await Haptics.impact({ style: ImpactStyle.Light });
+        } catch (e) {
+          // Haptics not available
+        }
+      }
+    }
+
+    console.log('Ionic Mobile: Script loaded successfully');
+  </script>
+</body>
+</html>

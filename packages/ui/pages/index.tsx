@@ -7,39 +7,14 @@ import type {
   Preset,
   DetectionKind
 } from '@cleanshare/core-detect';
-import { analyzeDocument, applyRedactions, startSession, endSession, startFileProcessing, recordAnalysisResults, recordRedactionResults } from '@cleanshare/core-detect';
+import { analyzeDocument, applyRedactions, startSession, endSession, startFileProcessing, recordAnalysisResults, recordRedactionResults, listPresets } from '@cleanshare/core-detect';
 import PresetManager from '../src/components/PresetManager';
 import HistoryDashboard from '../src/components/HistoryDashboard';
 import UndoRedoManager, { UndoRedoControls } from '../src/components/UndoRedoManager';
 import KeyboardShortcutsHelp from '../src/components/KeyboardShortcutsHelp';
 import { useUndoRedo } from '../src/hooks/useUndoRedo';
 
-// Ionic React Components
-import {
-  IonButton,
-  IonCard,
-  IonCardContent,
-  IonCardHeader,
-  IonCardSubtitle,
-  IonCardTitle,
-  IonIcon,
-  IonProgressBar,
-  IonFab,
-  IonFabButton,
-  IonActionSheet,
-  IonToast,
-  isPlatform
-} from '@ionic/react';
-import { 
-  documentOutline, 
-  cameraOutline, 
-  folderOpenOutline,
-  addOutline 
-} from 'ionicons/icons';
-
-// Capacitor Plugins
-import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
+// Vanilla React/Next.js - No Ionic/Capacitor imports for web app
 
 interface FileState {
   file: File;
@@ -74,7 +49,7 @@ export default function CleanSharePro() {
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
-  const isMobile = isPlatform('mobile');
+  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
 
   // Undo/Redo system for file states
   const undoRedoSystem = useUndoRedo<FileState[]>([], { maxHistorySize: 100 });
@@ -102,14 +77,11 @@ export default function CleanSharePro() {
 
   // Load presets on mount and when preset manager updates
   const loadPresets = () => {
-    // Import listPresets dynamically to avoid SSR issues
-    import('@cleanshare/core-detect').then(({ listPresets }) => {
-      const ps = listPresets();
-      setPresets(ps);
-      if (ps.length > 0 && !presetId) {
-        setPresetId(ps[0].id);
-      }
-    });
+    const ps = listPresets();
+    setPresets(ps);
+    if (ps.length > 0 && !presetId) {
+      setPresetId(ps[0].id);
+    }
   };
 
   useEffect(() => {
@@ -271,29 +243,12 @@ export default function CleanSharePro() {
     e.stopPropagation();
   };
 
-  // Mobile-specific file handling
+  // Mobile-specific file handling (vanilla fallback)
   const handleCameraCapture = async () => {
     try {
-      if (isMobile) {
-        await Haptics.impact({ style: ImpactStyle.Light });
-      }
-      
-      const image = await Camera.getPhoto({
-        quality: 90,
-        allowEditing: false,
-        resultType: CameraResultType.DataUrl,
-        source: CameraSource.Camera
-      });
-
-      if (image.dataUrl) {
-        // Convert data URL to File object
-        const response = await fetch(image.dataUrl);
-        const blob = await response.blob();
-        const file = new File([blob], `camera_${Date.now()}.jpg`, { type: 'image/jpeg' });
-        
-        setFiles(prev => [...prev, file]);
-        showToastMessage('📸 Photo captured successfully!');
-      }
+      showToastMessage('📸 Camera feature requires native app');
+      // Fallback to file picker
+      document.getElementById('file-input')?.click();
     } catch (error) {
       console.error('Camera capture failed:', error);
       showToastMessage('❌ Camera capture failed');
@@ -302,26 +257,9 @@ export default function CleanSharePro() {
 
   const handlePhotoLibrary = async () => {
     try {
-      if (isMobile) {
-        await Haptics.impact({ style: ImpactStyle.Light });
-      }
-      
-      const image = await Camera.getPhoto({
-        quality: 90,
-        allowEditing: false,
-        resultType: CameraResultType.DataUrl,
-        source: CameraSource.Photos
-      });
-
-      if (image.dataUrl) {
-        // Convert data URL to File object
-        const response = await fetch(image.dataUrl);
-        const blob = await response.blob();
-        const file = new File([blob], `photo_${Date.now()}.jpg`, { type: 'image/jpeg' });
-        
-        setFiles(prev => [...prev, file]);
-        showToastMessage('📷 Photo added successfully!');
-      }
+      showToastMessage('📷 Photo library feature requires native app');
+      // Fallback to file picker
+      document.getElementById('file-input')?.click();
     } catch (error) {
       console.error('Photo selection failed:', error);
       showToastMessage('❌ Photo selection failed');
@@ -329,9 +267,6 @@ export default function CleanSharePro() {
   };
 
   const handleFilePickerMobile = () => {
-    if (isMobile) {
-      Haptics.impact({ style: ImpactStyle.Light });
-    }
     document.getElementById('file-input')?.click();
   };
 
@@ -573,67 +508,58 @@ export default function CleanSharePro() {
       <div className="main-content">
         {/* Enhanced File Upload Section - Mobile Optimized */}
         {isMobile ? (
-          <IonCard style={{ marginBottom: 'var(--space-xl)' }}>
-            <IonCardHeader>
-              <IonCardTitle>Upload Files</IonCardTitle>
-              <IonCardSubtitle>
-                Select images or PDF documents to sanitize
-              </IonCardSubtitle>
-            </IonCardHeader>
-            <IonCardContent>
+          <div className="card" style={{ marginBottom: 'var(--space-xl)' }}>
+            <div className="card-header">
+              <h2 className="card-title">Upload Files</h2>
+              <p className="card-subtitle">Select images or PDF documents to sanitize</p>
+            </div>
+            <div className="card-body">
               <div 
                 className="file-upload-zone"
                 onDrop={handleDrop}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
+                onClick={() => document.getElementById('file-input')?.click()}
                 style={{ 
                   textAlign: 'center',
                   padding: 'var(--space-xl)',
                   border: '2px dashed var(--border-medium)',
                   borderRadius: 'var(--radius-lg)',
-                  marginBottom: 'var(--space-lg)'
+                  marginBottom: 'var(--space-lg)',
+                  cursor: 'pointer'
                 }}
               >
-                <IonIcon 
-                  icon={documentOutline} 
-                  style={{ fontSize: '3rem', color: 'var(--color-gray-400)', marginBottom: 'var(--space-md)' }}
-                />
+                <div style={{ fontSize: '3rem', marginBottom: 'var(--space-md)' }}>📄</div>
                 <div style={{ fontSize: 'var(--font-size-lg)', fontWeight: '500', marginBottom: 'var(--space-sm)' }}>
                   Upload your documents
                 </div>
                 <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
-                  Multiple file types supported
+                  Tap to browse or drag & drop files
                 </div>
               </div>
 
               <div style={{ display: 'flex', gap: 'var(--space-sm)', marginBottom: 'var(--space-md)' }}>
-                <IonButton 
-                  expand="block" 
-                  fill="outline" 
+                <button 
+                  className="btn btn-outline"
                   onClick={handleCameraCapture}
                   style={{ flex: 1 }}
                 >
-                  <IonIcon icon={cameraOutline} slot="start" />
-                  Camera
-                </IonButton>
-                <IonButton 
-                  expand="block" 
-                  fill="outline" 
+                  📷 Camera
+                </button>
+                <button 
+                  className="btn btn-outline"
                   onClick={handlePhotoLibrary}
                   style={{ flex: 1 }}
                 >
-                  <IonIcon icon={folderOpenOutline} slot="start" />
-                  Photos
-                </IonButton>
-                <IonButton 
-                  expand="block" 
-                  fill="solid" 
+                  📁 Photos
+                </button>
+                <button 
+                  className="btn btn-primary"
                   onClick={handleFilePickerMobile}
                   style={{ flex: 1 }}
                 >
-                  <IonIcon icon={documentOutline} slot="start" />
-                  Files
-                </IonButton>
+                  📄 Files
+                </button>
               </div>
 
               <input
@@ -646,15 +572,13 @@ export default function CleanSharePro() {
               />
               
               {loading && (
-                <div style={{ textAlign: 'center', marginTop: 'var(--space-md)' }}>
-                  <IonProgressBar type="indeterminate" style={{ marginBottom: 'var(--space-sm)' }} />
-                  <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
-                    Processing files...
-                  </div>
+                <div className="loading-text" style={{ marginTop: 'var(--space-md)' }}>
+                  <div className="loading-spinner"></div>
+                  Processing files...
                 </div>
               )}
-            </IonCardContent>
-          </IonCard>
+            </div>
+          </div>
         ) : (
           /* Web Version - Keep Original */
           <div className="card" style={{ marginBottom: 'var(--space-xl)' }}>
@@ -1014,58 +938,128 @@ export default function CleanSharePro() {
           onClose={() => setShowKeyboardHelp(false)}
         />
 
-        {/* Mobile-Specific Components */}
+        {/* Mobile-Specific Components - Vanilla Implementation */}
         {isMobile && (
           <>
             {/* Floating Action Button for Quick File Upload */}
-            <IonFab vertical="bottom" horizontal="end" slot="fixed">
-              <IonFabButton onClick={() => setShowActionSheet(true)}>
-                <IonIcon icon={addOutline} />
-              </IonFabButton>
-            </IonFab>
+            <div 
+              style={{ 
+                position: 'fixed',
+                bottom: 'var(--space-lg)',
+                right: 'var(--space-lg)',
+                zIndex: 1000
+              }}
+            >
+              <button
+                className="btn btn-primary"
+                onClick={() => setShowActionSheet(true)}
+                style={{
+                  width: '56px',
+                  height: '56px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1.5rem',
+                  boxShadow: 'var(--shadow-lg)'
+                }}
+              >
+                +
+              </button>
+            </div>
 
-            {/* Action Sheet for File Upload Options */}
-            <IonActionSheet
-              isOpen={showActionSheet}
-              onDidDismiss={() => setShowActionSheet(false)}
-              buttons={[
-                {
-                  text: 'Take Photo',
-                  icon: cameraOutline,
-                  handler: () => {
-                    handleCameraCapture();
-                  }
-                },
-                {
-                  text: 'Choose from Photos',
-                  icon: folderOpenOutline,
-                  handler: () => {
-                    handlePhotoLibrary();
-                  }
-                },
-                {
-                  text: 'Browse Files',
-                  icon: documentOutline,
-                  handler: () => {
-                    handleFilePickerMobile();
-                  }
-                },
-                {
-                  text: 'Cancel',
-                  role: 'cancel',
-                }
-              ]}
-              header="Add Files"
-            />
+            {/* Action Sheet for File Upload Options - Simple Modal */}
+            {showActionSheet && (
+              <div 
+                style={{
+                  position: 'fixed',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                  zIndex: 2000,
+                  display: 'flex',
+                  alignItems: 'flex-end',
+                  justifyContent: 'center'
+                }}
+                onClick={() => setShowActionSheet(false)}
+              >
+                <div 
+                  className="card"
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    margin: 'var(--space-md)',
+                    minWidth: '280px',
+                    maxWidth: '90vw'
+                  }}
+                >
+                  <div className="card-header">
+                    <h3 className="card-title">Add Files</h3>
+                  </div>
+                  <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+                    <button 
+                      className="btn btn-outline"
+                      onClick={() => {
+                        handleCameraCapture();
+                        setShowActionSheet(false);
+                      }}
+                      style={{ width: '100%', justifyContent: 'flex-start' }}
+                    >
+                      📷 Take Photo
+                    </button>
+                    <button 
+                      className="btn btn-outline"
+                      onClick={() => {
+                        handlePhotoLibrary();
+                        setShowActionSheet(false);
+                      }}
+                      style={{ width: '100%', justifyContent: 'flex-start' }}
+                    >
+                      📁 Choose from Photos
+                    </button>
+                    <button 
+                      className="btn btn-primary"
+                      onClick={() => {
+                        handleFilePickerMobile();
+                        setShowActionSheet(false);
+                      }}
+                      style={{ width: '100%', justifyContent: 'flex-start' }}
+                    >
+                      📄 Browse Files
+                    </button>
+                    <button 
+                      className="btn btn-outline"
+                      onClick={() => setShowActionSheet(false)}
+                      style={{ width: '100%' }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Toast for Mobile Feedback */}
-            <IonToast
-              isOpen={showToast}
-              onDidDismiss={() => setShowToast(false)}
-              message={toastMessage}
-              duration={2000}
-              position="top"
-            />
+            {showToast && (
+              <div 
+                style={{
+                  position: 'fixed',
+                  top: 'var(--space-lg)',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  backgroundColor: 'var(--bg-secondary)',
+                  color: 'var(--text-primary)',
+                  padding: 'var(--space-md) var(--space-lg)',
+                  borderRadius: 'var(--radius-md)',
+                  boxShadow: 'var(--shadow-lg)',
+                  zIndex: 3000,
+                  border: '1px solid var(--border-light)'
+                }}
+              >
+                {toastMessage}
+              </div>
+            )}
           </>
         )}
       </div>
