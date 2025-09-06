@@ -2,20 +2,21 @@
 
 ## Project Structure & Module Organization
 - Monorepo managed by `pnpm` workspaces.
-- `apps/cli`: Node CLI (entry at `apps/cli/bin/index.js`).
-- `apps/mobile`: Capacitor shell; serves built UI from `apps/mobile/web/`.
+- `apps/cli`: Node CLI (entry at `apps/cli/bin/index.js`, currently a stub).
+- `apps/mobile`: Capacitor shell; serves a pure WebView from `apps/mobile/web/`.
 - `packages/ui`: Next.js app (`pages/`, `styles/`).
-- `packages/core-detect`, `packages/native-bridge`, `packages/wasm`: TypeScript libs with `src/` → `dist/`.
-- `docs/` (architecture, roadmap) and `samples/` (images, pdfs).
+- `packages/core-detect`, `packages/wasm`: TypeScript libs with `src/` → `dist/`.
+- `packages-disabled/native-bridge`: Native plugins are currently disabled to keep 100% WebView builds.
+- `docs/` (architecture, roadmap) and `test-samples/` (sample PDF).
 
 ## Important Folders & Files
-- Root: `package.json` (workspace scripts), `pnpm-workspace.yaml`, `.editorconfig`, `.github/workflows/ci.yml` (UI build), `README.md`, `docs/ARCHITECTURE.md`, `docs/ROADMAP.md`, `docs/MVP_SCOPE.md`, `docs/POC_PLAN.md`, `samples/`.
-- `apps/cli/bin/index.js`: CLI entry (currently prints “not implemented”).
+- Root: `package.json` (workspace scripts), `pnpm-workspace.yaml`, `.editorconfig`, `README.md`, `docs/ARCHITECTURE.md`, `docs/ROADMAP.md`, `docs/MVP_SCOPE.md`, `docs/POC_PLAN.md`.
+- `apps/cli/bin/index.js`: CLI entry (prints “not implemented”).
 - `apps/mobile/capacitor.config.ts`, `android/`, `ios/`: Capacitor config and native shells.
-- `packages/ui/pages/index.tsx`: Main UI flow (upload → detect → redact/export). Supporting files: `_app.tsx`, `_error.tsx`, `404.tsx`, `styles/globals.css`, `next.config.js`, `.babelrc`.
-- `packages/core-detect/src/types.ts`: Core types. `detectors/index.ts`: token heuristics (Luhn, IBAN, SSN, JWT, AWS). `pipeline/analyze.ts`: OCR (Tesseract) + PDF render (pdfjs) + barcode (jsQR). `pipeline/apply.ts`: draw redactions (canvas/pdf-lib). `presets.ts`: built-in presets.
-- `packages/native-bridge/src/index.ts`: Capacitor plugin interfaces. `src/web/*.ts`: web fallbacks (OCR, PDF tools, share-in) using workers.
-- `packages/wasm/src/index.ts`: Comlink worker manager. `workers/ocr-worker.ts`: Tesseract wrapper. `workers/pdf-worker.ts`: pdf-lib helpers (some stubs).
+- `apps/mobile/web/`: Mobile WebView entry (`index.html`, `main.js`, styling, Capacitor stub for dev).
+- `packages/ui/pages/index.tsx`: Main UI flow (upload → detect → redact/export). Supporting files: `_app.tsx`, `_error.tsx`, `404.tsx`, `styles/globals.css`, `next.config.js`.
+- `packages/core-detect/src/types.ts`: Core types. `detectors/index.ts`: token heuristics (Luhn, IBAN, SSN, JWT, AWS). `pipeline/analyze.ts`: OCR (Tesseract) + PDF render (pdfjs) + barcode (jsQR). `pipeline/apply.ts`: draw redactions (canvas/pdf-lib). `presets.ts`: built-in presets. `history.ts`: processing history and analytics.
+- `packages/wasm/src/index.ts`: Comlink worker manager. `workers/ocr-worker.ts`: Tesseract wrapper. `workers/pdf-worker.ts`: pdf-lib helpers (currently partial stubs).
 
 ## Build, Test, and Development Commands
 - Install: `pnpm install` (bootstraps all workspaces).
@@ -23,7 +24,10 @@
 - Build all: `pnpm -r build` (or `pnpm --filter <pkg> build`).
 - UI prod: `pnpm --filter @cleanshare/ui start` after building.
 - CLI: placeholder only (`node apps/cli/bin/index.js` reports not implemented).
-- Mobile: `pnpm --filter @cleanshare/ui build`, copy output into `apps/mobile/web/`, then package/open with the Capacitor CLI.
+- Mobile dev server (vanilla WebView): `node apps/mobile/serve-mobile.js` (serves `apps/mobile/web/` at http://localhost:8081).
+- Mobile package flow (pure WebView):
+  - Option A (current): maintain `apps/mobile/web/` manually (uses CDN Tesseract/pdf.js).  Use Capacitor to package.
+  - Option B (preferred): `pnpm --filter @cleanshare/ui build && pnpm --filter @cleanshare/ui exec next export -o ../../apps/mobile/web` then `(cd apps/mobile && npx cap sync)` to package.
 
 ## Coding Style & Naming Conventions
 - Indentation: 2 spaces, LF, final newline (see `.editorconfig`).
@@ -32,35 +36,44 @@
 - No repo-wide ESLint/Prettier yet—if adding, match current formatting and 2‑space indent.
 
 ## Web & Mobile Deployment
-- Current readiness: Web UI is exportable; Capacitor shell exists. Native plugin code is stubbed; heavy OCR/PDF work runs on main thread.
-- Gaps to stores: Implement native plugins (Share‑In, Vision/OCR, PDF tools), add store assets/permissions, and ensure pdf.js worker is bundled from `public/` via `GlobalWorkerOptions.workerSrc`.
-- Architecture improvements:
-  - Platform adapters: inject OCR/Barcode/PDF via web workers (web) or Capacitor (mobile) instead of using DOM APIs in core.
-  - Workers by default: route Tesseract/pdf.js through `packages/wasm` Comlink workers to avoid UI blocking.
-  - PDF safety: prefer rasterized PDF rebuild to remove live text and hidden content.
-  - Explicit APIs: remove global state in redaction; pass detections directly.
-  - Packaging: add `public/pdf.worker.min.js`, lazy‑load heavy deps, and use static export for the UI.
+- Current readiness: Web UI runs; Mobile WebView runs with CDN-loaded `tesseract.js`, `pdfjs-dist`, and `pdf-lib`. Native plugin code is disabled; heavy OCR/PDF work largely runs on the main thread.
+- Goal: Keep 100% pure WebView + Capacitor for iOS/Android store builds (no custom native plugins). Replace CDN in production with locally bundled assets.
+- PDF.js worker: ensure a worker is bundled and referenced via `pdfjsLib.GlobalWorkerOptions.workerSrc` (Next.js: ship under `packages/ui/public/`; Mobile: ship alongside `apps/mobile/web/`).
+- Architecture improvements to pursue:
+  - Workers by default: route Tesseract/pdf.js via `packages/wasm` Comlink workers to avoid UI blocking.
+  - Platform adapters: inject OCR/Barcode/PDF via web workers (both web + mobile) instead of using DOM APIs in core.
+  - PDF safety: prefer rasterized PDF rebuild to remove live text and hidden content; keep vector overlays simple and deterministic.
+  - Explicit APIs: remove shared state in redaction; pass detections directly (core has helper for this already).
+  - Packaging: eliminate runtime CDNs for store builds; lazy‑load heavy deps; static export for UI.
 - Build/release flow:
-  - Web: `pnpm --filter @cleanshare/ui build && pnpm --filter @cleanshare/ui exec next export -o out` (deploy `packages/ui/out/`).
+  - Web: `pnpm --filter @cleanshare/ui build && pnpm --filter @cleenshare/ui exec next export -o out` (deploy `packages/ui/out/`).
   - Mobile: `pnpm --filter @cleanshare/ui exec next export -o ../../apps/mobile/web && (cd apps/mobile && npx cap sync)` then build in Xcode/Android Studio.
-- CI suggestions: `pnpm -r build`, run tests across packages, cache pnpm store, and publish web artifacts; optionally attach mobile build artifacts.
+- CI suggestions: add a simple workflow to run `pnpm -r build`, type-check packages, and publish web artifacts. Cache pnpm store. Optionally attach mobile web bundle as artifact. Note: `.github/workflows` is not present yet.
 
-## Next Steps (Plan)
-- Add platform adapters and wire UI to select web/native.
-- Workerize OCR/PDF paths using `packages/wasm`.
-- Switch to rasterized PDF redaction and add verification.
-- Make redaction API explicit (no shared state).
-- Add export/sync scripts and extend CI for web/mobile pipelines.
+## Phase 2.4 Fix & Optimize Plan (Pure WebView)
+- Align detection across web/mobile: remove duplicate mobile-only token code by reusing `@cleanshare/core-detect` detectors in mobile bundle; ensure the same presets and thresholds apply on both.
+- Workerize heavy paths: swap `tesseract.js` and PDF page rendering to `packages/wasm` workers in both web and mobile to keep the main thread responsive.
+- PDF correctness & safety: add a rasterized rebuild path for PDFs in workers (baseline) and keep current simple vector overlays only when safe; verify no live text remains.
+- Mobile UI polish: improve touch targets, reduce DOM weight, add progressive states, and ensure offline assets (no CDNs in production); keep the vanilla mobile shell and avoid Ionic to minimize footprint.
+- Performance telemetry: instrument analysis/redaction timings and memory hints; surface summary in the History dashboard for ad‑hoc profiling.
+- Export pipeline: unify image/PDF export; strip metadata; ensure downloads work on mobile WebView; test large files and multi‑page PDFs.
 
 ## Testing Guidelines
-- Tests not yet defined; add per package using `*.test.ts` co-located under `src/` or `src/__tests__/`.
-- Mock heavy deps (e.g., `tesseract.js`, `pdfjs-dist`) in unit tests.
-- Add `"test"` scripts in each package; run suite with `pnpm -r test`. Use type-checking via `tsc -p` for quick feedback.
+- Add package‑level tests using `*.test.ts` under `src/` or `src/__tests__/` (mock `tesseract.js`, `pdfjs-dist`, and workers).
+- Add smoke scripts to exercise analyze/apply on a corpus (see root `test-*.js` scripts as seeds). Run via Node against `dist/` builds.
+- Add a detection QA set: at least 10 screenshots + 3 PDFs with seeded emails/phones/PAN/IBAN/SSN/JWT/AWS to measure precision/recall; record results in `docs/`.
+- Run suite with `pnpm -r test`. Use `tsc -p` type‑checking for quick feedback.
 
 ## Commit & Pull Request Guidelines
-- Current history is minimal (e.g., “update”); adopt Conventional Commits: `feat:`, `fix:`, `docs:`, `refactor:`, etc. Include scopes like `ui:`, `core-detect:`, `native-bridge:`.
+- Current history is minimal; adopt Conventional Commits: `feat:`, `fix:`, `docs:`, `refactor:`, etc., with scopes like `ui:`, `core-detect:`, `wasm:`, `mobile:`.
 - PRs: clear description, linked issues, reproduction steps, before/after screenshots for UI, list affected packages, and update docs when behavior changes.
 
 ## Security & Configuration Tips
-- Do not commit secrets or real PII; use files under `samples/` for demos.
+- Do not commit secrets or real PII; use files under `samples/` or `test-samples/` for demos.
 - Avoid large binaries in git; consider Git LFS if assets grow.
+
+## Short-Term Deliverables (Next 2–3 weeks)
+- Web parity: stabilize Phase 2.4 features on web (`packages/ui`) using workers; verify preset manager, history, undo/redo on mid‑range devices.
+- Mobile parity: export UI statically and serve from `apps/mobile/web/`; validate identical detection results with the same files (1× JPG + 1× PDF now; expand corpus).
+- Replace CDNs in mobile with local copies of `tesseract.js`, `pdfjs-dist` worker, and `pdf-lib` for offline/store compliance.
+- Add a minimal CI workflow to build and type‑check packages and export the UI.
