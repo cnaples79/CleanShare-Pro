@@ -14,6 +14,33 @@ import UndoRedoManager, { UndoRedoControls } from '../src/components/UndoRedoMan
 import KeyboardShortcutsHelp from '../src/components/KeyboardShortcutsHelp';
 import { useUndoRedo } from '../src/hooks/useUndoRedo';
 
+// Ionic React Components
+import {
+  IonButton,
+  IonCard,
+  IonCardContent,
+  IonCardHeader,
+  IonCardSubtitle,
+  IonCardTitle,
+  IonIcon,
+  IonProgressBar,
+  IonFab,
+  IonFabButton,
+  IonActionSheet,
+  IonToast,
+  isPlatform
+} from '@ionic/react';
+import { 
+  documentOutline, 
+  cameraOutline, 
+  folderOpenOutline,
+  addOutline 
+} from 'ionicons/icons';
+
+// Capacitor Plugins
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
+
 interface FileState {
   file: File;
   detections: Detection[];
@@ -42,6 +69,12 @@ export default function CleanSharePro() {
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [fileProcessingRecords, setFileProcessingRecords] = useState<Map<number, string>>(new Map());
+
+  // Mobile-specific states
+  const [showActionSheet, setShowActionSheet] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const isMobile = isPlatform('mobile');
 
   // Undo/Redo system for file states
   const undoRedoSystem = useUndoRedo<FileState[]>([], { maxHistorySize: 100 });
@@ -236,6 +269,75 @@ export default function CleanSharePro() {
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+  };
+
+  // Mobile-specific file handling
+  const handleCameraCapture = async () => {
+    try {
+      if (isMobile) {
+        await Haptics.impact({ style: ImpactStyle.Light });
+      }
+      
+      const image = await Camera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Camera
+      });
+
+      if (image.dataUrl) {
+        // Convert data URL to File object
+        const response = await fetch(image.dataUrl);
+        const blob = await response.blob();
+        const file = new File([blob], `camera_${Date.now()}.jpg`, { type: 'image/jpeg' });
+        
+        setFiles(prev => [...prev, file]);
+        showToastMessage('📸 Photo captured successfully!');
+      }
+    } catch (error) {
+      console.error('Camera capture failed:', error);
+      showToastMessage('❌ Camera capture failed');
+    }
+  };
+
+  const handlePhotoLibrary = async () => {
+    try {
+      if (isMobile) {
+        await Haptics.impact({ style: ImpactStyle.Light });
+      }
+      
+      const image = await Camera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Photos
+      });
+
+      if (image.dataUrl) {
+        // Convert data URL to File object
+        const response = await fetch(image.dataUrl);
+        const blob = await response.blob();
+        const file = new File([blob], `photo_${Date.now()}.jpg`, { type: 'image/jpeg' });
+        
+        setFiles(prev => [...prev, file]);
+        showToastMessage('📷 Photo added successfully!');
+      }
+    } catch (error) {
+      console.error('Photo selection failed:', error);
+      showToastMessage('❌ Photo selection failed');
+    }
+  };
+
+  const handleFilePickerMobile = () => {
+    if (isMobile) {
+      Haptics.impact({ style: ImpactStyle.Light });
+    }
+    document.getElementById('file-input')?.click();
+  };
+
+  const showToastMessage = (message: string) => {
+    setToastMessage(message);
+    setShowToast(true);
   };
 
   const handleSanitize = async (fileIndex: number) => {
@@ -469,27 +571,71 @@ export default function CleanSharePro() {
 
       {/* Main Content */}
       <div className="main-content">
-        {/* File Upload Section */}
-        <div className="card" style={{ marginBottom: 'var(--space-xl)' }}>
-          <div className="card-header">
-            <h2 className="card-title">Upload Files</h2>
-            <p className="card-subtitle">Select images or PDF documents to sanitize</p>
-          </div>
-          <div className="card-body">
-            <div 
-              className="file-upload-zone"
-              onDrop={handleDrop}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onClick={() => document.getElementById('file-input')?.click()}
-            >
-              <div className="file-upload-icon">📄</div>
-              <div className="file-upload-text">
-                Drop files here or click to browse
+        {/* Enhanced File Upload Section - Mobile Optimized */}
+        {isMobile ? (
+          <IonCard style={{ marginBottom: 'var(--space-xl)' }}>
+            <IonCardHeader>
+              <IonCardTitle>Upload Files</IonCardTitle>
+              <IonCardSubtitle>
+                Select images or PDF documents to sanitize
+              </IonCardSubtitle>
+            </IonCardHeader>
+            <IonCardContent>
+              <div 
+                className="file-upload-zone"
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                style={{ 
+                  textAlign: 'center',
+                  padding: 'var(--space-xl)',
+                  border: '2px dashed var(--border-medium)',
+                  borderRadius: 'var(--radius-lg)',
+                  marginBottom: 'var(--space-lg)'
+                }}
+              >
+                <IonIcon 
+                  icon={documentOutline} 
+                  style={{ fontSize: '3rem', color: 'var(--color-gray-400)', marginBottom: 'var(--space-md)' }}
+                />
+                <div style={{ fontSize: 'var(--font-size-lg)', fontWeight: '500', marginBottom: 'var(--space-sm)' }}>
+                  Upload your documents
+                </div>
+                <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
+                  Multiple file types supported
+                </div>
               </div>
-              <div className="file-upload-subtext">
-                Supports images (JPG, PNG, WebP, HEIC, TIFF), PDFs, and documents (DOCX, XLSX) up to 10MB each
+
+              <div style={{ display: 'flex', gap: 'var(--space-sm)', marginBottom: 'var(--space-md)' }}>
+                <IonButton 
+                  expand="block" 
+                  fill="outline" 
+                  onClick={handleCameraCapture}
+                  style={{ flex: 1 }}
+                >
+                  <IonIcon icon={cameraOutline} slot="start" />
+                  Camera
+                </IonButton>
+                <IonButton 
+                  expand="block" 
+                  fill="outline" 
+                  onClick={handlePhotoLibrary}
+                  style={{ flex: 1 }}
+                >
+                  <IonIcon icon={folderOpenOutline} slot="start" />
+                  Photos
+                </IonButton>
+                <IonButton 
+                  expand="block" 
+                  fill="solid" 
+                  onClick={handleFilePickerMobile}
+                  style={{ flex: 1 }}
+                >
+                  <IonIcon icon={documentOutline} slot="start" />
+                  Files
+                </IonButton>
               </div>
+
               <input
                 id="file-input"
                 type="file"
@@ -498,16 +644,58 @@ export default function CleanSharePro() {
                 onChange={handleFileChange}
                 style={{ display: 'none' }}
               />
+              
+              {loading && (
+                <div style={{ textAlign: 'center', marginTop: 'var(--space-md)' }}>
+                  <IonProgressBar type="indeterminate" style={{ marginBottom: 'var(--space-sm)' }} />
+                  <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
+                    Processing files...
+                  </div>
+                </div>
+              )}
+            </IonCardContent>
+          </IonCard>
+        ) : (
+          /* Web Version - Keep Original */
+          <div className="card" style={{ marginBottom: 'var(--space-xl)' }}>
+            <div className="card-header">
+              <h2 className="card-title">Upload Files</h2>
+              <p className="card-subtitle">Select images or PDF documents to sanitize</p>
             </div>
-            
-            {loading && (
-              <div className="loading-text" style={{ marginTop: 'var(--space-md)' }}>
-                <div className="loading-spinner"></div>
-                Processing files...
+            <div className="card-body">
+              <div 
+                className="file-upload-zone"
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onClick={() => document.getElementById('file-input')?.click()}
+              >
+                <div className="file-upload-icon">📄</div>
+                <div className="file-upload-text">
+                  Drop files here or click to browse
+                </div>
+                <div className="file-upload-subtext">
+                  Supports images (JPG, PNG, WebP, HEIC, TIFF), PDFs, and documents (DOCX, XLSX) up to 10MB each
+                </div>
+                <input
+                  id="file-input"
+                  type="file"
+                  accept="image/*,application/pdf,.webp,.heic,.tiff,.docx,.xlsx"
+                  multiple
+                  onChange={handleFileChange}
+                  style={{ display: 'none' }}
+                />
               </div>
-            )}
+              
+              {loading && (
+                <div className="loading-text" style={{ marginTop: 'var(--space-md)' }}>
+                  <div className="loading-spinner"></div>
+                  Processing files...
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* File Processing Results */}
         {fileStates.length > 0 && (
@@ -825,6 +1013,61 @@ export default function CleanSharePro() {
           isOpen={showKeyboardHelp}
           onClose={() => setShowKeyboardHelp(false)}
         />
+
+        {/* Mobile-Specific Components */}
+        {isMobile && (
+          <>
+            {/* Floating Action Button for Quick File Upload */}
+            <IonFab vertical="bottom" horizontal="end" slot="fixed">
+              <IonFabButton onClick={() => setShowActionSheet(true)}>
+                <IonIcon icon={addOutline} />
+              </IonFabButton>
+            </IonFab>
+
+            {/* Action Sheet for File Upload Options */}
+            <IonActionSheet
+              isOpen={showActionSheet}
+              onDidDismiss={() => setShowActionSheet(false)}
+              buttons={[
+                {
+                  text: 'Take Photo',
+                  icon: cameraOutline,
+                  handler: () => {
+                    handleCameraCapture();
+                  }
+                },
+                {
+                  text: 'Choose from Photos',
+                  icon: folderOpenOutline,
+                  handler: () => {
+                    handlePhotoLibrary();
+                  }
+                },
+                {
+                  text: 'Browse Files',
+                  icon: documentOutline,
+                  handler: () => {
+                    handleFilePickerMobile();
+                  }
+                },
+                {
+                  text: 'Cancel',
+                  role: 'cancel',
+                }
+              ]}
+              header="Add Files"
+            />
+
+            {/* Toast for Mobile Feedback */}
+            <IonToast
+              isOpen={showToast}
+              onDidDismiss={() => setShowToast(false)}
+              message={toastMessage}
+              duration={2000}
+              position="top"
+            />
+          </>
+        )}
       </div>
     </div>
   );

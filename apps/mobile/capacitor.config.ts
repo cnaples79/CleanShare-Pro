@@ -10,12 +10,7 @@ const config: CapacitorConfig = {
   appId: 'com.cleanshare.pro',
   appName: 'CleanShare Pro',
   webDir: 'web',
-  bundledWebRuntime: false,
-  plugins: {
-    ShareIn: {},
-    Vision: {},
-    PdfTools: {}
-  }
+  bundledWebRuntime: false
 };
 
 export default config;

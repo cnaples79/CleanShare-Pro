@@ -7,12 +7,9 @@
     "build": "echo 'Please run the UI build and copy it into apps/mobile/web before packaging'"
   },
   "dependencies": {
-    "@capacitor/core": "^5.0.5",
-    "@capacitor/android": "^5.0.5",
-    "@capacitor/ios": "^5.0.5",
-    "@cleanshare/ui": "workspace:*",
-    "@cleanshare/native-bridge": "workspace:*",
-    "@cleanshare/core-detect": "workspace:*",
-    "@cleanshare/wasm": "workspace:*"
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/core": "^7.4.3",
+    "@capacitor/ios": "^7.4.3",
+    "@cleanshare/ui": "workspace:*"
   }
 }

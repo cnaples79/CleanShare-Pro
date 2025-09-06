@@ -1,8 +1,7 @@
 // Main application entry point for CleanShare Pro mobile app
 
-// Import necessary modules when available
+// Import necessary modules when available (100% WebView architecture)
 let coreDetect = null;
-let nativeBridge = null;
 let wasmWorkers = null;
 
 // Real detection logic from core-detect package
@@ -450,25 +449,8 @@ This file is safe to share.`;
     console.warn('✗ Core detection module not available:', error.message);
   }
 
-  try {
-    // Native bridge simulation
-    console.log('✓ Native bridge functionality available');
-    nativeBridge = {
-      ShareIn: {
-        getSharedFiles: async () => ({ files: [] })
-      },
-      Vision: {
-        recognizeText: async (options) => ({ words: [] }),
-        detectFaces: async (options) => ({ faces: [] }),
-        detectBarcodes: async (options) => ({ barcodes: [] })
-      },
-      PdfTools: {
-        sanitizePdf: async (options) => ({ uri: options.uri })
-      }
-    };
-  } catch (error) {
-    console.warn('✗ Native bridge module not available:', error.message);
-  }
+  // Native bridge removed - using 100% WebView architecture
+  console.log('✓ Using 100% WebView architecture');
 
   try {
     // WASM workers simulation
@@ -542,19 +524,12 @@ async function applyRedactions(originalFile, actions, options) {
   }
 }
 
-// Check for shared files on app startup (mobile only)
+// Check for shared files on app startup (100% WebView - no custom plugins)
 async function checkSharedFiles() {
-  if (!nativeBridge || !window.Capacitor?.isNativePlatform()) {
-    return [];
-  }
-
-  try {
-    const result = await nativeBridge.ShareIn.getSharedFiles();
-    return result.files || [];
-  } catch (error) {
-    console.warn('Failed to check shared files:', error);
-    return [];
-  }
+  // Note: In 100% WebView architecture, file sharing is handled through
+  // built-in Capacitor plugins or standard web file picker
+  console.log('WebView: No custom file sharing plugins - using standard web APIs');
+  return [];
 }
 
 // Enhanced file selection for web environments
@@ -599,19 +574,18 @@ window.CleanSharePro = {
   selectFiles,
   downloadFile,
   
-  // Module references (will be null if not loaded)
+  // Module references (100% WebView architecture)
   get coreDetect() { return coreDetect; },
-  get nativeBridge() { return nativeBridge; },
   get wasmWorkers() { return wasmWorkers; }
 };
 
 // Auto-initialize when script loads
 initializeModules().then(() => {
-  console.log('CleanShare Pro mobile app modules initialized');
+  console.log('CleanShare Pro mobile app modules initialized (100% WebView architecture)');
   
   // Dispatch ready event
   window.dispatchEvent(new CustomEvent('cleanshare-ready', {
-    detail: { modules: { coreDetect, nativeBridge, wasmWorkers } }
+    detail: { modules: { coreDetect, wasmWorkers } }
   }));
 }).catch(error => {
   console.error('Failed to initialize CleanShare Pro modules:', error);
