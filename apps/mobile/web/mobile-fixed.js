@@ -128,6 +128,164 @@ function duplicateMobilePreset(presetId) {
 
 
 // Mobile Toast Notification System (removed to keep UI purely React)
+// Preset API aligned with web (localStorage-backed)
+const USER_PRESETS_KEY = 'cleanshare_user_presets';
+function listBuiltinPresets() { return MOBILE_BUILTIN_PRESETS.slice(); }
+function listUserPresets() { return JSON.parse(localStorage.getItem(USER_PRESETS_KEY) || '[]'); }
+function listPresets() { return [...listBuiltinPresets(), ...listUserPresets()]; }
+function listPresetsByDomain(domain) { return listPresets().filter(p => p.domain === domain); }
+function getPreset(id) { return listPresets().find(p => p.id === id); }
+function savePreset(preset) { return saveMobilePreset({ ...preset, isUserCreated: true, updatedAt: new Date().toISOString(), createdAt: preset.createdAt || new Date().toISOString() }); }
+function createPreset(name, options = {}) {
+  const preset = {
+    id: 'preset_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+    name,
+    description: options.description || '',
+    domain: options.domain || 'General',
+    enabledKinds: options.enabledKinds || [],
+    styleMap: options.styleMap || {},
+    customRegex: options.customRegex || [],
+    customPatterns: options.customPatterns || [],
+    defaultRedactionConfig: options.defaultRedactionConfig || { color: '#000000', opacity: 0.9 },
+    confidenceThreshold: options.confidenceThreshold || 0.6,
+    isUserCreated: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    version: '1.0.0'
+  };
+  saveMobilePreset(preset);
+  return preset;
+}
+function validatePreset(preset) {
+  const errors = []; const warnings = [];
+  if (!preset || typeof preset !== 'object') errors.push('Preset must be an object');
+  if (!preset.name || typeof preset.name !== 'string') errors.push('Preset name is required');
+  if (!Array.isArray(preset.enabledKinds)) warnings.push('enabledKinds should be an array');
+  if (preset.customPatterns && Array.isArray(preset.customPatterns)) {
+    preset.customPatterns.forEach((pattern, i) => {
+      if (!pattern.id || !pattern.name || !pattern.pattern) {
+        errors.push(`Custom pattern ${i + 1} is missing required fields`);
+      } else {
+        try { new RegExp(pattern.pattern); } catch { errors.push(`Invalid regex in custom pattern ${i + 1}`); }
+      }
+    });
+  }
+  if (preset.confidenceThreshold != null) {
+    const v = preset.confidenceThreshold; if (typeof v !== 'number' || v < 0 || v > 1) warnings.push('confidenceThreshold should be 0–1');
+  }
+  return { success: errors.length === 0, preset, errors, warnings };
+}
+function importPreset(json) {
+  try {
+    const data = JSON.parse(json);
+    const validation = validatePreset(data);
+    if (!validation.success) return validation;
+    const existing = getPreset(validation.preset.id);
+    if (existing) {
+      validation.preset.id = 'preset_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      validation.preset.name = `${validation.preset.name} (Imported)`;
+      validation.warnings.push('ID conflict: generated new ID');
+    }
+    saveMobilePreset({ ...validation.preset, isUserCreated: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+    return { ...validation, success: true };
+  } catch (e) {
+    return { success: false, errors: ['Invalid JSON: ' + (e.message || String(e))], warnings: [] };
+  }
+}
+function importMultiplePresets(json) {
+  try {
+    const arr = JSON.parse(json);
+    if (!Array.isArray(arr)) return [{ success: false, errors: ['Expected JSON array of presets'], warnings: [] }];
+    return arr.map(p => importPreset(JSON.stringify(p)));
+  } catch (e) {
+    return [{ success: false, errors: ['Invalid JSON: ' + (e.message || String(e))], warnings: [] }];
+  }
+}
+function exportPreset(id, options = {}) {
+  const preset = getPreset(id); if (!preset) return null;
+  const data = { ...preset };
+  if (!options.includeMetadata) { delete data.createdAt; delete data.updatedAt; delete data.isUserCreated; }
+  return options.format === 'compact' ? JSON.stringify(data) : JSON.stringify(data, null, 2);
+}
+function exportAllUserPresets(options = {}) {
+  const arr = listUserPresets().map(p => {
+    const d = { ...p }; if (!options.includeMetadata) { delete d.createdAt; delete d.updatedAt; delete d.isUserCreated; } return d;
+  });
+  return options.format === 'compact' ? JSON.stringify(arr) : JSON.stringify(arr, null, 2);
+}
+function resetUserPresets() { localStorage.setItem(USER_PRESETS_KEY, JSON.stringify([])); }
+
+// History API aligned with web (localStorage-backed)
+const SESSIONS_KEY = 'cleanshare_processing_sessions';
+const RECORDS_KEY = 'cleanshare_file_records';
+function _loadArray(key) { try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch { return []; } }
+function _saveArray(key, arr) { try { localStorage.setItem(key, JSON.stringify(arr)); } catch {} }
+function _genId() { return `${Date.now()}_${Math.random().toString(36).substr(2,9)}`; }
+function startSession(opts) {
+  const sessions = _loadArray(SESSIONS_KEY);
+  const session = {
+    id: _genId(),
+    startTime: new Date().toISOString(),
+    status: 'running',
+    totalFiles: opts.totalFiles || 0,
+    processedFiles: 0,
+    failedFiles: 0,
+    presetId: opts.presetId,
+    presetName: opts.presetName,
+    options: { analyze: opts.analyzeOptions, apply: opts.applyOptions }
+  };
+  sessions.push(session); _saveArray(SESSIONS_KEY, sessions); return session.id;
+}
+function endSession(sessionId, status='completed') { const sessions = _loadArray(SESSIONS_KEY); const s = sessions.find(x=>x.id===sessionId); if (s){ s.endTime=new Date().toISOString(); s.status=status; _saveArray(SESSIONS_KEY,sessions);} }
+function startFileProcessing(opts) {
+  const records = _loadArray(RECORDS_KEY);
+  const rec = {
+    id: _genId(), sessionId: opts.sessionId, fileName: opts.fileName, fileSize: opts.fileSize, fileType: opts.fileType,
+    timestamp: new Date().toISOString(), processingTime: 0, status: 'analyzing', error: undefined,
+    detections: [], detectionCounts: {}, totalDetections: 0, averageConfidence: 0,
+    appliedRedactions: [], redactionStats: { total: 0, byType: {}, byStyle: {} },
+    confidenceDistribution: { low: 0, medium: 0, high: 0 }
+  };
+  records.push(rec); _saveArray(RECORDS_KEY, records); return rec.id;
+}
+function recordAnalysisResults(recordId, opts) {
+  const sessions = _loadArray(SESSIONS_KEY); const records = _loadArray(RECORDS_KEY);
+  const rec = records.find(r=>r.id===recordId); if (!rec) return;
+  if (opts.error){ rec.status='failed'; rec.error=opts.error; const s=sessions.find(x=>x.id===rec.sessionId); if (s) s.failedFiles++; }
+  else {
+    rec.status='applying'; rec.detections=opts.detections||[];
+    const counts={}; let totalConf=0; const dist={low:0,medium:0,high:0};
+    rec.detections.forEach(d=>{ counts[d.kind]=(counts[d.kind]||0)+1; totalConf+=d.confidence||0; const c=d.confidence||0; if (c<0.5) dist.low++; else if(c<0.8) dist.medium++; else dist.high++; });
+    rec.detectionCounts=counts; rec.totalDetections=rec.detections.length; rec.averageConfidence=rec.detections.length? totalConf/rec.detections.length:0; rec.confidenceDistribution=dist;
+    rec.ocrTime=opts.ocrTime; rec.detectionTime=opts.detectionTime;
+  }
+  _saveArray(RECORDS_KEY, records); _saveArray(SESSIONS_KEY, sessions);
+}
+function recordRedactionResults(recordId, opts) {
+  const sessions=_loadArray(SESSIONS_KEY); const records=_loadArray(RECORDS_KEY);
+  const rec=records.find(r=>r.id===recordId); if (!rec) return;
+  const start=new Date(rec.timestamp).getTime(); rec.processingTime=Date.now()-start;
+  if (opts.error){ rec.status='failed'; rec.error=opts.error; const s=sessions.find(x=>x.id===rec.sessionId); if (s) s.failedFiles++; }
+  else {
+    rec.status='completed'; rec.appliedRedactions=opts.appliedRedactions||[]; rec.redactionTime=opts.redactionTime; rec.outputSize=opts.outputSize;
+    const byStyle={}; rec.appliedRedactions.forEach(a=>{ byStyle[a.style]=(byStyle[a.style]||0)+1; }); rec.redactionStats={ total: rec.appliedRedactions.length, byType: {}, byStyle };
+    const s=sessions.find(x=>x.id===rec.sessionId); if (s) s.processedFiles++;
+  }
+  _saveArray(RECORDS_KEY, records); _saveArray(SESSIONS_KEY, sessions);
+}
+function getSessions(){ return _loadArray(SESSIONS_KEY).slice().reverse(); }
+function getAllRecords(){ return _loadArray(RECORDS_KEY).slice().reverse(); }
+function getProcessingStats(){ const records=_loadArray(RECORDS_KEY); const sessions=_loadArray(SESSIONS_KEY); const completed=records.filter(r=>r.status==='completed'); const stats={ totalSessions:sessions.length, totalFiles:records.length, totalDetections:records.reduce((s,r)=>s+(r.totalDetections||0),0), averageProcessingTime:completed.length? completed.reduce((s,r)=>s+(r.processingTime||0),0)/completed.length:0, successRate:records.length? completed.length/records.length:0, detectionsByType:{}, detectionsByConfidence:{low:0,medium:0,high:0}, redactionsByStyle:{}, processingTimesByDate:[], presetUsage:{} };
+  records.forEach(r=>{ Object.entries(r.detectionCounts||{}).forEach(([k,v])=>{ stats.detectionsByType[k]=(stats.detectionsByType[k]||0)+v; }); const c=r.confidenceDistribution||{low:0,medium:0,high:0}; stats.detectionsByConfidence.low+=c.low; stats.detectionsByConfidence.medium+=c.medium; stats.detectionsByConfidence.high+=c.high; Object.entries((r.redactionStats&&r.redactionStats.byStyle)||{}).forEach(([k,v])=>{ stats.redactionsByStyle[k]=(stats.redactionsByStyle[k]||0)+v; }); const s=sessions.find(x=>x.id===r.sessionId); if (s?.presetName){ stats.presetUsage[s.presetName]=(stats.presetUsage[s.presetName]||0)+1; } });
+  const map=new Map(); completed.forEach(r=>{ const d=new Date(r.timestamp).toISOString().split('T')[0]; const cur=map.get(d)||{total:0,count:0}; map.set(d,{ total:cur.total+(r.processingTime||0), count:cur.count+1 }); }); stats.processingTimesByDate=Array.from(map.entries()).map(([date,v])=>({date, averageTime:v.total/v.count, fileCount:v.count})).sort((a,b)=>a.date.localeCompare(b.date)); return stats; }
+function clearHistory(){ _saveArray(SESSIONS_KEY, []); _saveArray(RECORDS_KEY, []); }
+function exportHistory(options={format:'json'}){
+  if (options.format==='json') { const data={ sessions:getSessions(), records:getAllRecords(), stats:getProcessingStats(), exportedAt:new Date().toISOString() }; return JSON.stringify(data, null, 2); }
+  // CSV
+  const headers=['Session ID','File Name','File Size','File Type','Timestamp','Processing Time (ms)','Status','Total Detections','Average Confidence','High Confidence Count','Medium Confidence Count','Low Confidence Count','Total Redactions','Preset Name','Error'];
+  const rows=getAllRecords().map(r=>{ const s=_loadArray(SESSIONS_KEY).find(x=>x.id===r.sessionId); return [r.sessionId, r.fileName, r.fileSize, r.fileType, r.timestamp, r.processingTime, r.status, r.totalDetections, (r.averageConfidence||0).toFixed(3), r.confidenceDistribution?.high||0, r.confidenceDistribution?.medium||0, r.confidenceDistribution?.low||0, r.redactionStats?.total||0, s?.presetName||'', r.error||'']; });
+  return [headers, ...rows].map(row => row.map(cell => '"'+String(cell).replace(/"/g,'""')+'"').join(',')).join('\n');
+}
 /* function showMobileToast(message, duration = 3000) {
   // Remove existing toast
   const existingToast = document.querySelector('.mobile-toast');
@@ -613,11 +771,10 @@ const PresetManagerModal = ({ isOpen, onClose }) => {
   }
 
   const [selectedTab, setSelectedTab] = React.useState('browse');
-  const [presets] = React.useState([
-    { id: 'healthcare', name: 'Healthcare (HIPAA)', description: 'Medical document sanitization' },
-    { id: 'finance', name: 'Finance (PCI)', description: 'Financial document sanitization' },
-    { id: 'legal', name: 'Legal', description: 'Legal document sanitization' }
-  ]);
+  const [presets, setPresets] = React.useState(listPresets());
+  const [importText, setImportText] = React.useState('');
+  const [exportText, setExportText] = React.useState('');
+  const refreshPresets = () => setPresets(listPresets());
 
   if (!isOpen) return null;
 
@@ -704,14 +861,26 @@ const PresetManagerModal = ({ isOpen, onClose }) => {
             fontSize: '14px',
             cursor: 'pointer'
           }
-        }, 'Import')
+        }, 'Import'),
+        React.createElement('button', {
+          onClick: () => setSelectedTab('export'),
+          style: {
+            flex: 1,
+            padding: '12px',
+            border: 'none',
+            background: selectedTab === 'export' ? '#2563eb' : 'white',
+            color: selectedTab === 'export' ? 'white' : '#6b7280',
+            fontSize: '14px',
+            cursor: 'pointer'
+          }
+        }, 'Export')
       ),
 
       // Content
       React.createElement('div', {
         style: { padding: '20px', overflow: 'auto', flex: 1 }
       },
-        selectedTab === 'browse' 
+        selectedTab === 'browse'
           ? React.createElement('div', {},
               presets.map(preset =>
                 React.createElement('div', {
@@ -720,23 +889,36 @@ const PresetManagerModal = ({ isOpen, onClose }) => {
                     padding: '16px',
                     border: '1px solid #e5e7eb',
                     borderRadius: '8px',
-                    marginBottom: '12px',
-                    cursor: 'pointer'
-                  },
-                  onClick: () => console.log('Selected preset:', preset.id)
+                    marginBottom: '12px'
+                  }
                 },
-                  React.createElement('div', {
-                    style: { fontWeight: '600', marginBottom: '4px' }
-                  }, preset.name),
-                  React.createElement('div', {
-                    style: { fontSize: '14px', color: '#6b7280' }
-                  }, preset.description)
+                  React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' } },
+                    React.createElement('div', { style: { fontWeight: '600' } }, preset.name),
+                    React.createElement('div', {}, !preset.isUserCreated ? React.createElement('span', { style: { fontSize: '12px', color: '#059669' } }, 'Built-in') : null)
+                  ),
+                  preset.description ? React.createElement('div', { style: { fontSize: '14px', color: '#6b7280', marginBottom: '8px' } }, preset.description) : null,
+                  React.createElement('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
+                    React.createElement('button', { onClick: () => { const exp = exportPreset(preset.id, { format: 'json', includeMetadata: false }); setExportText(exp || ''); setSelectedTab('export'); }, style: { padding: '8px 12px', background: '#0ea5e9', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' } }, 'Export'),
+                    preset.isUserCreated ? React.createElement('button', { onClick: () => { deleteMobilePreset(preset.id); refreshPresets(); }, style: { padding: '8px 12px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' } }, 'Delete') : null,
+                    React.createElement('button', { onClick: () => { const d = duplicateMobilePreset(preset.id); if (d) refreshPresets(); }, style: { padding: '8px 12px', background: '#10b981', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' } }, 'Duplicate')
+                  )
                 )
               )
             )
-          : React.createElement('div', {
-              style: { textAlign: 'center', padding: '20px', color: '#6b7280' }
-            }, 'Import presets functionality')
+          : selectedTab === 'import' ? React.createElement('div', {},
+              React.createElement('textarea', { value: importText, onChange: (e) => setImportText(e.target.value), placeholder: 'Paste preset JSON (single or array)…', style: { width: '100%', height: '160px', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px', marginBottom: '8px' } }),
+              React.createElement('div', { style: { display: 'flex', gap: '8px' } },
+                React.createElement('button', { onClick: () => { const res = importPreset(importText); alert(res.success ? 'Imported preset' : 'Import failed:\n' + res.errors.join('\n')); refreshPresets(); }, style: { padding: '8px 12px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' } }, 'Import One'),
+                React.createElement('button', { onClick: () => { const res = importMultiplePresets(importText); const ok = res.filter(r => r.success).length; const bad = res.length - ok; alert(`Imported: ${ok}, Failed: ${bad}`); refreshPresets(); }, style: { padding: '8px 12px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' } }, 'Import Many')
+              )
+            ) : React.createElement('div', {},
+              React.createElement('textarea', { value: exportText, readOnly: true, placeholder: 'Exported preset JSON will appear here…', style: { width: '100%', height: '160px', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px', marginBottom: '8px' } }),
+              React.createElement('div', { style: { display: 'flex', gap: '8px' } },
+                React.createElement('button', { onClick: () => { const all = exportAllUserPresets({ format: 'json', includeMetadata: false }); setExportText(all); }, style: { padding: '8px 12px', background: '#10b981', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' } }, 'Export All User Presets'),
+                React.createElement('button', { onClick: () => { navigator.clipboard.writeText(exportText || ''); alert('Copied to clipboard'); }, style: { padding: '8px 12px', background: '#6b7280', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' } }, 'Copy'),
+                React.createElement('button', { onClick: () => { resetUserPresets(); refreshPresets(); alert('User presets cleared'); }, style: { padding: '8px 12px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' } }, 'Reset User Presets')
+              )
+            )
       )
     )
   );
@@ -744,745 +926,71 @@ const PresetManagerModal = ({ isOpen, onClose }) => {
 
 // Phase 2.4 Component 2: Processing History & Audit Trail (using working patterns)
 const HistoryDashboardModal = ({ isOpen, onClose }) => {
-  console.log('HistoryDashboardModal rendering...', { isOpen });
-  
-  // Verify React hooks are available (same pattern as main app)
-  if (typeof React?.useState !== 'function') {
-    console.error('React.useState not available in HistoryDashboardModal');
-    return React.createElement('div', {}, 'React hooks not available');
-  }
-
-  const [selectedView, setSelectedView] = React.useState('recent');
-  const [mockHistory] = React.useState([
-    { id: 1, filename: 'document1.pdf', detections: 5, timestamp: Date.now() - 3600000 },
-    { id: 2, filename: 'invoice.jpg', detections: 2, timestamp: Date.now() - 7200000 },
-    { id: 3, filename: 'contract.pdf', detections: 8, timestamp: Date.now() - 10800000 }
-  ]);
-
   if (!isOpen) return null;
-
-  return React.createElement('div', {
-    style: {
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      background: 'rgba(0, 0, 0, 0.5)',
-      zIndex: 1000,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '20px'
-    }
-  },
-    React.createElement('div', {
-      style: {
-        background: 'white',
-        borderRadius: '12px',
-        width: '100%',
-        maxWidth: '400px',
-        maxHeight: '80vh',
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column'
-      }
-    },
-      // Header
-      React.createElement('div', {
-        style: {
-          padding: '20px',
-          borderBottom: '1px solid #e5e7eb',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }
-      },
-        React.createElement('h3', {
-          style: { margin: 0, fontSize: '18px', color: '#1f2937' }
-        }, '📊 Processing History'),
-        React.createElement('button', {
-          onClick: onClose,
-          style: {
-            background: 'none',
-            border: 'none',
-            fontSize: '24px',
-            cursor: 'pointer',
-            padding: '0',
-            color: '#6b7280'
-          }
-        }, '×')
+  return React.createElement('div', { style: { position:'fixed', top:0,left:0,right:0,bottom:0, background:'rgba(0,0,0,0.5)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:'20px' } },
+    React.createElement('div', { style: { background:'white', borderRadius:'12px', width:'100%', maxWidth:'420px', maxHeight:'80vh', overflow:'auto', display:'flex', flexDirection:'column' } },
+      React.createElement('div', { style: { padding:'16px', borderBottom:'1px solid #e5e7eb', display:'flex', justifyContent:'space-between', alignItems:'center' } },
+        React.createElement('h3', { style:{ margin:0, fontSize:'18px', color:'#1f2937' } }, '📊 Processing History'),
+        React.createElement('button', { onClick:onClose, style:{ background:'none', border:'none', fontSize:'24px', cursor:'pointer', color:'#6b7280' }}, '×')
       ),
-
-      // View selector
-      React.createElement('div', {
-        style: {
-          display: 'flex',
-          borderBottom: '1px solid #e5e7eb'
-        }
-      },
-        React.createElement('button', {
-          onClick: () => setSelectedView('recent'),
-          style: {
-            flex: 1,
-            padding: '12px',
-            border: 'none',
-            background: selectedView === 'recent' ? '#059669' : 'white',
-            color: selectedView === 'recent' ? 'white' : '#6b7280',
-            fontSize: '14px',
-            cursor: 'pointer'
-          }
-        }, 'Recent'),
-        React.createElement('button', {
-          onClick: () => setSelectedView('stats'),
-          style: {
-            flex: 1,
-            padding: '12px',
-            border: 'none',
-            background: selectedView === 'stats' ? '#059669' : 'white',
-            color: selectedView === 'stats' ? 'white' : '#6b7280',
-            fontSize: '14px',
-            cursor: 'pointer'
-          }
-        }, 'Statistics')
-      ),
-
-      // Content
-      React.createElement('div', {
-        style: { padding: '20px', overflow: 'auto', flex: 1 }
-      },
-        selectedView === 'recent'
-          ? React.createElement('div', {},
-              mockHistory.map(item =>
-                React.createElement('div', {
-                  key: item.id,
-                  style: {
-                    padding: '16px',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                    marginBottom: '12px'
-                  }
-                },
-                  React.createElement('div', {
-                    style: { fontWeight: '600', marginBottom: '8px', fontSize: '14px' }
-                  }, `📄 ${item.filename}`),
-                  React.createElement('div', {
-                    style: { fontSize: '12px', color: '#6b7280', marginBottom: '4px' }
-                  }, `Detections: ${item.detections}`),
-                  React.createElement('div', {
-                    style: { fontSize: '12px', color: '#6b7280' }
-                  }, new Date(item.timestamp).toLocaleString())
-                )
-              )
-            )
-          : React.createElement('div', {
-              style: { textAlign: 'center' }
-            },
-              React.createElement('div', {
-                style: {
-                  padding: '20px',
-                  background: '#f0f9ff',
-                  borderRadius: '8px',
-                  marginBottom: '16px'
-                }
-              },
-                React.createElement('div', {
-                  style: { fontSize: '24px', fontWeight: 'bold', color: '#0369a1' }
-                }, mockHistory.length),
-                React.createElement('div', {
-                  style: { fontSize: '14px', color: '#6b7280', marginTop: '4px' }
-                }, 'Files Processed')
-              ),
-              React.createElement('div', {
-                style: {
-                  padding: '20px',
-                  background: '#f0fdf4',
-                  borderRadius: '8px'
-                }
-              },
-                React.createElement('div', {
-                  style: { fontSize: '24px', fontWeight: 'bold', color: '#059669' }
-                }, mockHistory.reduce((sum, item) => sum + item.detections, 0)),
-                React.createElement('div', {
-                  style: { fontSize: '14px', color: '#6b7280', marginTop: '4px' }
-                }, 'Total Detections')
-              )
-            )
+      React.createElement('div', { style:{ padding:'16px', display:'grid', gap:'8px' } },
+        React.createElement('button', { onClick: () => { const data = exportHistory({ format:'json' }); navigator.clipboard.writeText(data); alert('History JSON copied'); }, style:{ padding:'8px 12px', background:'#0ea5e9', color:'white', border:'none', borderRadius:'6px', cursor:'pointer' } }, 'Export JSON'),
+        React.createElement('button', { onClick: () => { const data = exportHistory({ format:'csv' }); navigator.clipboard.writeText(data); alert('History CSV copied'); }, style:{ padding:'8px 12px', background:'#0ea5e9', color:'white', border:'none', borderRadius:'6px', cursor:'pointer' } }, 'Export CSV'),
+        React.createElement('button', { onClick: () => { if (confirm('Clear all history?')) { clearHistory(); alert('History cleared'); } }, style:{ padding:'8px 12px', background:'#ef4444', color:'white', border:'none', borderRadius:'6px', cursor:'pointer' } }, 'Clear History')
       )
     )
   );
 };
-
-// Phase 2.4 Component 3: Undo/Redo Functionality (using working patterns)
-const UndoRedoControlsModal = ({ isOpen, onClose }) => {
-  console.log('UndoRedoControlsModal rendering...', { isOpen });
-  
-  // Verify React hooks are available (same pattern as main app)
-  if (typeof React?.useState !== 'function') {
-    console.error('React.useState not available in UndoRedoControlsModal');
-    return React.createElement('div', {}, 'React hooks not available');
-  }
-
-  const [undoHistory] = React.useState([
-    { id: 1, action: 'Applied redaction box', target: 'Email detection', timestamp: Date.now() - 300000 },
-    { id: 2, action: 'Changed redaction style', target: 'Phone number', timestamp: Date.now() - 600000 },
-    { id: 3, action: 'Added custom pattern', target: 'Address block', timestamp: Date.now() - 900000 }
-  ]);
-  const [redoHistory] = React.useState([
-    { id: 4, action: 'Removed redaction', target: 'Credit card number', timestamp: Date.now() - 150000 }
-  ]);
-
-  if (!isOpen) return null;
-
-  return React.createElement('div', {
-    style: {
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      background: 'rgba(0, 0, 0, 0.5)',
-      zIndex: 1000,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '20px'
-    }
-  },
-    React.createElement('div', {
-      style: {
-        background: 'white',
-        borderRadius: '12px',
-        width: '100%',
-        maxWidth: '400px',
-        maxHeight: '80vh',
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column'
-      }
-    },
-      // Header
-      React.createElement('div', {
-        style: {
-          padding: '20px',
-          borderBottom: '1px solid #e5e7eb',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }
-      },
-        React.createElement('h3', {
-          style: { margin: 0, fontSize: '18px', color: '#1f2937' }
-        }, '↩️ Undo/Redo Manager'),
-        React.createElement('button', {
-          onClick: onClose,
-          style: {
-            background: 'none',
-            border: 'none',
-            fontSize: '24px',
-            cursor: 'pointer',
-            padding: '0',
-            color: '#6b7280'
-          }
-        }, '×')
-      ),
-
-      // Action buttons
-      React.createElement('div', {
-        style: {
-          display: 'flex',
-          gap: '12px',
-          padding: '20px',
-          borderBottom: '1px solid #e5e7eb'
-        }
-      },
-        React.createElement('button', {
-          onClick: () => console.log('Undo action triggered'),
-          disabled: undoHistory.length === 0,
-          style: {
-            flex: 1,
-            padding: '12px',
-            border: 'none',
-            background: undoHistory.length > 0 ? '#dc2626' : '#e5e7eb',
-            color: undoHistory.length > 0 ? 'white' : '#9ca3af',
-            borderRadius: '8px',
-            fontSize: '14px',
-            fontWeight: '600',
-            cursor: undoHistory.length > 0 ? 'pointer' : 'not-allowed',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px'
-          }
-        }, '⤺ Undo'),
-        React.createElement('button', {
-          onClick: () => console.log('Redo action triggered'),
-          disabled: redoHistory.length === 0,
-          style: {
-            flex: 1,
-            padding: '12px',
-            border: 'none',
-            background: redoHistory.length > 0 ? '#16a34a' : '#e5e7eb',
-            color: redoHistory.length > 0 ? 'white' : '#9ca3af',
-            borderRadius: '8px',
-            fontSize: '14px',
-            fontWeight: '600',
-            cursor: redoHistory.length > 0 ? 'pointer' : 'not-allowed',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px'
-          }
-        }, '⤻ Redo')
-      ),
-
-      // History lists
-      React.createElement('div', {
-        style: { padding: '20px', overflow: 'auto', flex: 1 }
-      },
-        React.createElement('div', {
-          style: { marginBottom: '24px' }
-        },
-          React.createElement('h4', {
-            style: { margin: '0 0 12px 0', fontSize: '16px', color: '#dc2626' }
-          }, `⤺ Undo History (${undoHistory.length})`),
-          undoHistory.length > 0 
-            ? React.createElement('div', {},
-                undoHistory.map(item =>
-                  React.createElement('div', {
-                    key: item.id,
-                    style: {
-                      padding: '12px',
-                      border: '1px solid #fee2e2',
-                      background: '#fef2f2',
-                      borderRadius: '8px',
-                      marginBottom: '8px'
-                    }
-                  },
-                    React.createElement('div', {
-                      style: { fontWeight: '600', fontSize: '14px', marginBottom: '4px' }
-                    }, item.action),
-                    React.createElement('div', {
-                      style: { fontSize: '12px', color: '#6b7280', marginBottom: '4px' }
-                    }, `Target: ${item.target}`),
-                    React.createElement('div', {
-                      style: { fontSize: '12px', color: '#6b7280' }
-                    }, new Date(item.timestamp).toLocaleString())
-                  )
-                )
-              )
-            : React.createElement('p', {
-                style: { color: '#6b7280', fontSize: '14px', fontStyle: 'italic' }
-              }, 'No actions to undo')
-        ),
-        
-        React.createElement('div', {},
-          React.createElement('h4', {
-            style: { margin: '0 0 12px 0', fontSize: '16px', color: '#16a34a' }
-          }, `⤻ Redo History (${redoHistory.length})`),
-          redoHistory.length > 0 
-            ? React.createElement('div', {},
-                redoHistory.map(item =>
-                  React.createElement('div', {
-                    key: item.id,
-                    style: {
-                      padding: '12px',
-                      border: '1px solid #dcfce7',
-                      background: '#f0fdf4',
-                      borderRadius: '8px',
-                      marginBottom: '8px'
-                    }
-                  },
-                    React.createElement('div', {
-                      style: { fontWeight: '600', fontSize: '14px', marginBottom: '4px' }
-                    }, item.action),
-                    React.createElement('div', {
-                      style: { fontSize: '12px', color: '#6b7280', marginBottom: '4px' }
-                    }, `Target: ${item.target}`),
-                    React.createElement('div', {
-                      style: { fontSize: '12px', color: '#6b7280' }
-                    }, new Date(item.timestamp).toLocaleString())
-                  )
-                )
-              )
-            : React.createElement('p', {
-                style: { color: '#6b7280', fontSize: '14px', fontStyle: 'italic' }
-              }, 'No actions to redo')
-        )
-      ),
-
-      // Keyboard shortcuts info
-      React.createElement('div', {
-        style: {
-          padding: '16px 20px',
-          borderTop: '1px solid #e5e7eb',
-          background: '#f9fafb'
-        }
-      },
-        React.createElement('div', {
-          style: { fontSize: '12px', color: '#6b7280', textAlign: 'center' }
-        }, 'Keyboard: Ctrl+Z (Undo) • Ctrl+Y (Redo) • Ctrl+Shift+Z (Redo)')
-      )
-    )
-  );
-};
-
-// Phase 2.4 Component 4: Keyboard Shortcuts & Accessibility (using working patterns)
-const KeyboardShortcutsModal = ({ isOpen, onClose }) => {
-  console.log('KeyboardShortcutsModal rendering...', { isOpen });
-  
-  // Verify React hooks are available (same pattern as main app)
-  if (typeof React?.useState !== 'function') {
-    console.error('React.useState not available in KeyboardShortcutsModal');
-    return React.createElement('div', {}, 'React hooks not available');
-  }
-
-  const [shortcutSections] = React.useState([
-    {
-      title: 'File Operations',
-      shortcuts: [
-        { keys: ['Ctrl', 'O'], description: 'Open file picker to upload files', context: 'Global' },
-        { keys: ['Escape'], description: 'Close any open modal or dialog', context: 'Global' }
-      ]
-    },
-    {
-      title: 'Editing & Undo/Redo',
-      shortcuts: [
-        { keys: ['Ctrl', 'Z'], description: 'Undo last action', context: 'When files are loaded' },
-        { keys: ['Ctrl', 'Y'], description: 'Redo last undone action', context: 'When files are loaded' },
-        { keys: ['Ctrl', 'Shift', 'Z'], description: 'Redo last undone action (alternative)', context: 'When files are loaded' }
-      ]
-    },
-    {
-      title: 'Navigation',
-      shortcuts: [
-        { keys: ['Tab'], description: 'Navigate to next interactive element', context: 'Global' },
-        { keys: ['Shift', 'Tab'], description: 'Navigate to previous interactive element', context: 'Global' },
-        { keys: ['Space'], description: 'Toggle checkboxes and activate buttons', context: 'When focused' },
-        { keys: ['Enter'], description: 'Activate buttons and submit forms', context: 'When focused' }
-      ]
-    },
-    {
-      title: 'Help & Information',
-      shortcuts: [
-        { keys: ['?'], description: 'Show this keyboard shortcuts help', context: 'Global' },
-        { keys: ['F1'], description: 'Show keyboard shortcuts help (alternative)', context: 'Global' }
-      ]
-    }
-  ]);
-
-  if (!isOpen) return null;
-
-  // Helper function to render key combinations
-  const renderKeyCombo = (keys) => {
-    return React.createElement('div', {
-      style: { display: 'flex', gap: '2px', alignItems: 'center' }
-    },
-      keys.map((key, index) =>
-        React.createElement(React.Fragment, { key: key },
-          React.createElement('kbd', {
-            style: {
-              padding: '2px 6px',
-              background: '#f3f4f6',
-              border: '1px solid #d1d5db',
-              borderRadius: '3px',
-              fontSize: '11px',
-              fontFamily: 'monospace',
-              minWidth: '20px',
-              textAlign: 'center'
-            }
-          }, key),
-          index < keys.length - 1 ? React.createElement('span', {
-            style: { fontSize: '11px', margin: '0 2px' }
-          }, '+') : null
-        )
-      )
-    );
-  };
-
-  return React.createElement('div', {
-    style: {
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      background: 'rgba(0, 0, 0, 0.5)',
-      zIndex: 1000,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '20px'
-    }
-  },
-    React.createElement('div', {
-      style: {
-        background: 'white',
-        borderRadius: '12px',
-        width: '100%',
-        maxWidth: '500px',
-        maxHeight: '90vh',
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column'
-      }
-    },
-      // Header
-      React.createElement('div', {
-        style: {
-          padding: '20px',
-          borderBottom: '1px solid #e5e7eb',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }
-      },
-        React.createElement('h3', {
-          style: { margin: 0, fontSize: '18px', color: '#1f2937' }
-        }, '⌨️ Keyboard Shortcuts'),
-        React.createElement('button', {
-          onClick: onClose,
-          style: {
-            background: 'none',
-            border: 'none',
-            fontSize: '24px',
-            cursor: 'pointer',
-            padding: '0',
-            color: '#6b7280'
-          }
-        }, '×')
-      ),
-
-      // Content
-      React.createElement('div', {
-        style: { padding: '20px', overflow: 'auto', flex: 1 }
-      },
-        React.createElement('div', {
-          style: { display: 'flex', flexDirection: 'column', gap: '24px' }
-        },
-          shortcutSections.map((section, sectionIndex) =>
-            React.createElement('div', { key: sectionIndex },
-              React.createElement('h4', {
-                style: {
-                  margin: '0 0 12px 0',
-                  fontSize: '16px',
-                  color: '#2563eb',
-                  borderBottom: '1px solid #e5e7eb',
-                  paddingBottom: '8px'
-                }
-              }, section.title),
-              React.createElement('div', {
-                style: { display: 'flex', flexDirection: 'column', gap: '8px' }
-              },
-                section.shortcuts.map((shortcut, shortcutIndex) =>
-                  React.createElement('div', {
-                    key: shortcutIndex,
-                    style: {
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      padding: '12px',
-                      background: '#f9fafb',
-                      borderRadius: '8px',
-                      gap: '16px'
-                    }
-                  },
-                    React.createElement('div', { style: { flex: 1 } },
-                      React.createElement('div', {
-                        style: { fontWeight: '600', marginBottom: '2px', fontSize: '14px' }
-                      }, shortcut.description),
-                      shortcut.context ? React.createElement('div', {
-                        style: { fontSize: '12px', color: '#6b7280' }
-                      }, `Context: ${shortcut.context}`) : null
-                    ),
-                    renderKeyCombo(shortcut.keys)
-                  )
-                )
-              )
-            )
-          )
-        ),
-
-        // Accessibility Features
-        React.createElement('div', {
-          style: {
-            marginTop: '24px',
-            padding: '16px',
-            background: '#f0f9ff',
-            borderRadius: '8px',
-            border: '1px solid #e0f2fe'
-          }
-        },
-          React.createElement('h4', {
-            style: { margin: '0 0 12px 0', fontSize: '16px', color: '#0369a1' }
-          }, '🌐 Accessibility Features'),
-          React.createElement('ul', {
-            style: {
-              margin: '0',
-              paddingLeft: '20px',
-              fontSize: '14px',
-              color: '#374151',
-              lineHeight: '1.5'
-            }
-          },
-            React.createElement('li', { style: { marginBottom: '4px' } }, 'Full keyboard navigation support'),
-            React.createElement('li', { style: { marginBottom: '4px' } }, 'Screen reader compatible with ARIA labels'),
-            React.createElement('li', { style: { marginBottom: '4px' } }, 'High contrast mode available'),
-            React.createElement('li', { style: { marginBottom: '4px' } }, 'Focus indicators show current selection'),
-            React.createElement('li', { style: { marginBottom: '4px' } }, 'All interactive elements keyboard accessible')
-          )
-        ),
-
-        // Pro Tips
-        React.createElement('div', {
-          style: {
-            marginTop: '16px',
-            padding: '16px',
-            background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)',
-            borderRadius: '8px',
-            color: 'white'
-          }
-        },
-          React.createElement('h4', {
-            style: { margin: '0 0 12px 0', fontSize: '16px', color: 'white' }
-          }, '💡 Pro Tips'),
-          React.createElement('ul', {
-            style: {
-              margin: '0',
-              paddingLeft: '20px',
-              fontSize: '14px',
-              color: 'white',
-              lineHeight: '1.5'
-            }
-          },
-            React.createElement('li', { style: { marginBottom: '4px' } }, 'Use Ctrl+Z/Ctrl+Y for quick experimentation'),
-            React.createElement('li', { style: { marginBottom: '4px' } }, 'Floating controls appear when working with files'),
-            React.createElement('li', { style: { marginBottom: '4px' } }, 'Press ? anytime to reference shortcuts'),
-            React.createElement('li', { style: { marginBottom: '4px' } }, 'All shortcuts work without mouse focus'),
-            React.createElement('li', { style: { marginBottom: '4px' } }, 'Action history persists across sessions')
-          )
-        )
-      ),
-
-      // Footer
-      React.createElement('div', {
-        style: {
-          padding: '16px 20px',
-          borderTop: '1px solid #e5e7eb',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }
-      },
-        React.createElement('div', {
-          style: { fontSize: '12px', color: '#6b7280' }
-        }, 'Press ', React.createElement('kbd', {
-          style: {
-            padding: '2px 4px',
-            background: '#f3f4f6',
-            border: '1px solid #d1d5db',
-            borderRadius: '2px',
-            fontSize: '11px'
-          }
-        }, 'Escape'), ' or click Close to dismiss'),
-        React.createElement('button', {
-          onClick: onClose,
-          style: {
-            padding: '8px 16px',
-            background: '#2563eb',
-            color: 'white',
-            border: 'none',
-            borderRadius: '6px',
-            fontSize: '14px',
-            fontWeight: '600',
-            cursor: 'pointer'
-          }
-        }, 'Close')
-      )
-    )
-  );
-};
-
-// Full CleanShare Pro Mobile App with Phase 2.4 features (using working patterns)
 const MobileApp = () => {
-  console.log('Full MobileApp rendering - using arrow function syntax');
-  
-  // Verify React hooks are available
-  if (typeof React?.useState !== 'function') {
-    console.error('React.useState is not a function:', typeof React?.useState);
-    return React.createElement('div', { style: { padding: '20px', color: 'red' } }, 
-      'React hooks not available'
-    );
-  }
-
-  console.log('React.useState is available, initializing full app state...');
-  
-  // Core app state
+  // Core single-file state
   const [selectedFile, setSelectedFile] = React.useState(null);
   const [isAnalyzing, setIsAnalyzing] = React.useState(false);
   const [analysisResult, setAnalysisResult] = React.useState(null);
   const [isSanitizing, setIsSanitizing] = React.useState(false);
   const [sanitizedBlob, setSanitizedBlob] = React.useState(null);
   const [previewUri, setPreviewUri] = React.useState(null);
-  const [currentStep, setCurrentStep] = React.useState('upload'); // upload, review, preview
+  const [currentStep, setCurrentStep] = React.useState('upload');
   const [detectionFilter, setDetectionFilter] = React.useState({});
-  
-  // Multi-file state (parity with web)
-  const [fileStates, setFileStates] = React.useState([]);
-  const [currentFileIndex, setCurrentFileIndex] = React.useState(0);
-  
-  // Phase 2.4 modal states
+
+  // Modals
   const [showPresets, setShowPresets] = React.useState(false);
   const [showHistory, setShowHistory] = React.useState(false);
   const [showUndo, setShowUndo] = React.useState(false);
   const [showKeyboard, setShowKeyboard] = React.useState(false);
 
-  console.log('Full app state initialized successfully');
+  // Sessions for history
+  const [currentSessionId, setCurrentSessionId] = React.useState(null);
 
-  // File upload handler
+  // Multi-file state
+  const [fileStates, setFileStates] = React.useState([]);
+  const [currentFileIndex, setCurrentFileIndex] = React.useState(0);
+
+  // Single-file upload handler
   const handleFileSelect = React.useCallback(async (event) => {
     const file = event.target.files[0];
     if (!file) return;
-    
-    console.log('File selected:', file.name, file.type, file.size);
     setSelectedFile(file);
     setCurrentStep('review');
-    
-    // Start analysis immediately
     setIsAnalyzing(true);
     setAnalysisResult(null);
-    
     try {
-      console.log('Starting file analysis via CleanSharePro...');
       if (!window.CleanSharePro || typeof window.CleanSharePro.processFile !== 'function') {
         throw new Error('Processing engine not ready');
       }
       const res = await window.CleanSharePro.processFile(file);
-      if (!res || !res.success) {
-        throw new Error(res?.error || 'Analysis failed');
-      }
+      if (!res || !res.success) throw new Error(res?.error || 'Analysis failed');
       const result = { detections: res.detections || [], pages: res.pages || 1 };
-      console.log('Analysis completed:', result);
-
       setAnalysisResult(result);
-
-      // Initialize detection filter (all enabled by default)
-      const filter = {};
-      result.detections.forEach(detection => {
-        filter[detection.id] = true;
-      });
-      setDetectionFilter(filter);
-
-    } catch (error) {
-      console.error('Analysis failed:', error);
-      alert(`Analysis failed: ${error.message}`);
+      const filter = {}; result.detections.forEach(d => filter[d.id] = true); setDetectionFilter(filter);
+    } catch (e) {
+      alert(`Analysis failed: ${e.message}`);
     } finally {
       setIsAnalyzing(false);
     }
   }, []);
 
-  // Multi-file: add files
-  const handleAddFiles = React.useCallback(async (event) => {
+  // Multi-file: add files (append to fileStates)
+  const handleAddFiles = React.useCallback((event) => {
     const list = Array.from(event.target.files || []);
     if (!list.length) return;
     setFileStates(prev => {
@@ -1504,7 +1012,7 @@ const MobileApp = () => {
       if (prev.length === 0) setCurrentFileIndex(0);
       return next;
     });
-    // Reset input to allow re-selecting the same files later
+    // allow the same files to be reselected later
     event.target.value = '';
   }, []);
 
@@ -1516,16 +1024,21 @@ const MobileApp = () => {
         throw new Error('Processing engine not ready');
       }
       const s = fileStates[index];
+      let recordId = null;
+      if (currentSessionId) {
+        recordId = startFileProcessing({ sessionId: currentSessionId, fileName: s.file.name, fileSize: s.file.size, fileType: s.file.type });
+      }
       const res = await window.CleanSharePro.processFile(s.file);
       if (!res || !res.success) throw new Error(res?.error || 'Analysis failed');
       const detections = res.detections || [];
       const selected = {}; const actions = {};
       detections.forEach(d => { selected[d.id] = true; actions[d.id] = { style: 'BOX' }; });
       setFileStates(prev => prev.map((fs, i) => i === index ? { ...fs, detections, pages: res.pages || 1, selected, actions, analyzed: true, analyzing: false } : fs));
+      if (recordId) recordAnalysisResults(recordId, { detections });
     } catch (err) {
       setFileStates(prev => prev.map((s, i) => i === index ? { ...s, analyzing: false, error: err.message } : s));
     }
-  }, [fileStates]);
+  }, [fileStates, currentSessionId]);
 
   // Sanitize one file by index
   const sanitizeOne = React.useCallback(async (index) => {
@@ -1535,6 +1048,7 @@ const MobileApp = () => {
         throw new Error('Processing engine not ready');
       }
       const s = fileStates[index];
+      let recordId = null; if (currentSessionId) { recordId = startFileProcessing({ sessionId: currentSessionId, fileName: s.file.name, fileSize: s.file.size, fileType: s.file.type }); }
       const actions = (s.detections || []).filter(d => s.selected[d.id]).map(d => ({ detectionId: d.id, style: (s.actions[d.id]?.style) || 'BOX' }));
       const res = await window.CleanSharePro.applyRedactions(s.file, actions, { detections: s.detections });
       if (!res || !res.success) throw new Error(res?.error || 'Sanitization failed');
@@ -1542,10 +1056,11 @@ const MobileApp = () => {
       const blob = new Blob([res.data], { type: mime });
       const url = URL.createObjectURL(blob);
       setFileStates(prev => prev.map((fs, i) => i === index ? { ...fs, outputUri: url, previewUri: url, sanitizing: false, sanitized: true } : fs));
+      if (recordId) recordRedactionResults(recordId, { appliedRedactions: actions, outputSize: blob.size });
     } catch (err) {
       setFileStates(prev => prev.map((s, i) => i === index ? { ...s, sanitizing: false, error: err.message } : s));
     }
-  }, [fileStates]);
+  }, [fileStates, currentSessionId]);
 
   // Concurrency helper
   const runWithConcurrency = React.useCallback(async (indexes, worker, limit = 3) => {
@@ -1561,6 +1076,8 @@ const MobileApp = () => {
 
   // Bulk actions
   const analyzeAll = React.useCallback(async () => {
+    const sid = startSession({ totalFiles: fileStates.length });
+    setCurrentSessionId(sid);
     const toAnalyze = fileStates.map((s, i) => ({ s, i })).filter(x => !x.s.analyzed && !x.s.analyzing);
     await runWithConcurrency(toAnalyze.map(x => x.i), analyzeOne, 3);
   }, [fileStates, analyzeOne, runWithConcurrency]);
@@ -1568,8 +1085,8 @@ const MobileApp = () => {
   const sanitizeAll = React.useCallback(async () => {
     const toSanitize = fileStates.map((s, i) => ({ s, i })).filter(x => x.s.analyzed && !x.s.sanitized && !x.s.sanitizing);
     await runWithConcurrency(toSanitize.map(x => x.i), sanitizeOne, 3);
-  }, [fileStates, sanitizeOne, runWithConcurrency]);
-
+    if (currentSessionId) endSession(currentSessionId, 'completed');
+  }, [fileStates, sanitizeOne, runWithConcurrency, currentSessionId]);
   const downloadAll = React.useCallback(() => {
     fileStates.forEach((s, i) => {
       if (s.outputUri) {
@@ -1787,6 +1304,7 @@ const MobileApp = () => {
       React.createElement('button', { onClick: analyzeAll, style: { padding: '8px 16px', background: '#0ea5e9', color: 'white', border: 'none', borderRadius: '6px', fontSize: '14px', cursor: 'pointer', fontWeight: '600' } }, '🔍 Analyze All'),
       React.createElement('button', { onClick: sanitizeAll, style: { padding: '8px 16px', background: '#10b981', color: 'white', border: 'none', borderRadius: '6px', fontSize: '14px', cursor: 'pointer', fontWeight: '600' } }, '🧼 Sanitize All'),
       React.createElement('button', { onClick: downloadAll, style: { padding: '8px 16px', background: '#6b7280', color: 'white', border: 'none', borderRadius: '6px', fontSize: '14px', cursor: 'pointer', fontWeight: '600' } }, '⬇️ Download All'),
+      React.createElement('button', { onClick: () => { setFileStates(prev => { prev.forEach(s => { if (s.previewUri) try{URL.revokeObjectURL(s.previewUri);}catch{} }); return []; }); }, style: { padding: '8px 16px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', fontSize: '14px', cursor: 'pointer', fontWeight: '600' } }, '🧹 Clear List'),
       React.createElement('button', {
         onClick: () => setShowPresets(true),
         style: {
@@ -1862,7 +1380,8 @@ const MobileApp = () => {
             React.createElement('div', { style: { display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' } },
               React.createElement('button', { onClick: () => analyzeOne(currentFileIndex), disabled: fs.analyzing, style: { padding: '8px 12px', background: '#0ea5e9', color: 'white', border: 'none', borderRadius: '6px', cursor: fs.analyzing ? 'not-allowed' : 'pointer' } }, fs.analyzing ? 'Analyzing…' : 'Analyze'),
               React.createElement('button', { onClick: () => sanitizeOne(currentFileIndex), disabled: !fs.analyzed || fs.sanitizing, style: { padding: '8px 12px', background: '#10b981', color: 'white', border: 'none', borderRadius: '6px', cursor: (!fs.analyzed || fs.sanitizing) ? 'not-allowed' : 'pointer' } }, fs.sanitizing ? 'Sanitizing…' : 'Sanitize'),
-              React.createElement('button', { onClick: () => { if (fs.outputUri) { const a = document.createElement('a'); a.href = fs.outputUri; a.download = `sanitized_${fs.file.name}`; document.body.appendChild(a); a.click(); document.body.removeChild(a); } }, disabled: !fs.outputUri, style: { padding: '8px 12px', background: '#6b7280', color: 'white', border: 'none', borderRadius: '6px', cursor: fs.outputUri ? 'pointer' : 'not-allowed' } }, 'Download')
+              React.createElement('button', { onClick: () => { if (fs.outputUri) { const a = document.createElement('a'); a.href = fs.outputUri; a.download = `sanitized_${fs.file.name}`; document.body.appendChild(a); a.click(); document.body.removeChild(a); } }, disabled: !fs.outputUri, style: { padding: '8px 12px', background: '#6b7280', color: 'white', border: 'none', borderRadius: '6px', cursor: fs.outputUri ? 'pointer' : 'not-allowed' } }, 'Download'),
+              React.createElement('button', { onClick: () => { setFileStates(prev => { const next = prev.slice(); const removed = next.splice(currentFileIndex, 1)[0]; try { if (removed?.previewUri) URL.revokeObjectURL(removed.previewUri); } catch {} return next; }); setCurrentFileIndex(i => Math.max(0, i - 1)); }, style: { padding: '8px 12px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' } }, 'Remove')
             ),
             // Detections
             fs.analyzed ? React.createElement('div', { style: { marginBottom: '12px' } },
@@ -2261,6 +1780,43 @@ const MobileApp = () => {
         setShowKeyboard(false);
       }
     })
+  );
+};
+
+// Minimal Undo/Redo modal to prevent undefined component errors
+const UndoRedoControlsModal = ({ isOpen, onClose }) => {
+  if (!isOpen) return null;
+  return React.createElement('div', { style: { position:'fixed', top:0,left:0,right:0,bottom:0, background:'rgba(0,0,0,0.5)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:'20px' } },
+    React.createElement('div', { style: { background:'white', borderRadius:'12px', width:'100%', maxWidth:'420px', maxHeight:'80vh', overflow:'auto', display:'flex', flexDirection:'column' } },
+      React.createElement('div', { style: { padding:'16px', borderBottom:'1px solid #e5e7eb', display:'flex', justifyContent:'space-between', alignItems:'center' } },
+        React.createElement('h3', { style:{ margin:0, fontSize:'18px', color:'#1f2937' } }, '↩️ Undo/Redo'),
+        React.createElement('button', { onClick:onClose, style:{ background:'none', border:'none', fontSize:'24px', cursor:'pointer', color:'#6b7280' }}, '×')
+      ),
+      React.createElement('div', { style:{ padding:'16px', color:'#6b7280' } }, 'Use controls in main UI to undo/redo changes.')
+    )
+  );
+};
+
+// Minimal Keyboard Shortcuts modal
+const KeyboardShortcutsModal = ({ isOpen, onClose }) => {
+  if (!isOpen) return null;
+  const item = (keys, desc) => React.createElement('div', { style:{ display:'flex', justifyContent:'space-between', marginBottom:'6px' } },
+    React.createElement('div', { style:{ fontFamily:'monospace' } }, keys),
+    React.createElement('div', { style:{ color:'#6b7280' } }, desc)
+  );
+  return React.createElement('div', { style: { position:'fixed', top:0,left:0,right:0,bottom:0, background:'rgba(0,0,0,0.5)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:'20px' } },
+    React.createElement('div', { style: { background:'white', borderRadius:'12px', width:'100%', maxWidth:'420px', maxHeight:'80vh', overflow:'auto', display:'flex', flexDirection:'column' } },
+      React.createElement('div', { style: { padding:'16px', borderBottom:'1px solid #e5e7eb', display:'flex', justifyContent:'space-between', alignItems:'center' } },
+        React.createElement('h3', { style:{ margin:0, fontSize:'18px', color:'#1f2937' } }, '⌨️ Keyboard Shortcuts'),
+        React.createElement('button', { onClick:onClose, style:{ background:'none', border:'none', fontSize:'24px', cursor:'pointer', color:'#6b7280' }}, '×')
+      ),
+      React.createElement('div', { style:{ padding:'16px' } },
+        item('Ctrl+O', 'Open file picker'),
+        item('Ctrl+Z', 'Undo (opens manager)'),
+        item('Ctrl+Y / Ctrl+Shift+Z', 'Redo (opens manager)'),
+        item('?', 'Open this help')
+      )
+    )
   );
 };
 
