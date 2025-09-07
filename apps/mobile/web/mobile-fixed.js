@@ -1427,6 +1427,10 @@ const MobileApp = () => {
   const [currentStep, setCurrentStep] = React.useState('upload'); // upload, review, preview
   const [detectionFilter, setDetectionFilter] = React.useState({});
   
+  // Multi-file state (parity with web)
+  const [fileStates, setFileStates] = React.useState([]);
+  const [currentFileIndex, setCurrentFileIndex] = React.useState(0);
+  
   // Phase 2.4 modal states
   const [showPresets, setShowPresets] = React.useState(false);
   const [showHistory, setShowHistory] = React.useState(false);
@@ -1476,6 +1480,110 @@ const MobileApp = () => {
       setIsAnalyzing(false);
     }
   }, []);
+
+  // Multi-file: add files
+  const handleAddFiles = React.useCallback(async (event) => {
+    const list = Array.from(event.target.files || []);
+    if (!list.length) return;
+    setFileStates(prev => {
+      const appended = list.map((f) => ({
+        file: f,
+        detections: [],
+        pages: 1,
+        selected: {},
+        actions: {},
+        analyzing: false,
+        sanitizing: false,
+        outputUri: null,
+        previewUri: null,
+        error: null,
+        analyzed: false,
+        sanitized: false
+      }));
+      const next = [...prev, ...appended];
+      if (prev.length === 0) setCurrentFileIndex(0);
+      return next;
+    });
+    // Reset input to allow re-selecting the same files later
+    event.target.value = '';
+  }, []);
+
+  // Analyze one file by index
+  const analyzeOne = React.useCallback(async (index) => {
+    setFileStates(prev => prev.map((s, i) => i === index ? { ...s, analyzing: true, error: null } : s));
+    try {
+      if (!window.CleanSharePro || typeof window.CleanSharePro.processFile !== 'function') {
+        throw new Error('Processing engine not ready');
+      }
+      const s = fileStates[index];
+      const res = await window.CleanSharePro.processFile(s.file);
+      if (!res || !res.success) throw new Error(res?.error || 'Analysis failed');
+      const detections = res.detections || [];
+      const selected = {}; const actions = {};
+      detections.forEach(d => { selected[d.id] = true; actions[d.id] = { style: 'BOX' }; });
+      setFileStates(prev => prev.map((fs, i) => i === index ? { ...fs, detections, pages: res.pages || 1, selected, actions, analyzed: true, analyzing: false } : fs));
+    } catch (err) {
+      setFileStates(prev => prev.map((s, i) => i === index ? { ...s, analyzing: false, error: err.message } : s));
+    }
+  }, [fileStates]);
+
+  // Sanitize one file by index
+  const sanitizeOne = React.useCallback(async (index) => {
+    setFileStates(prev => prev.map((s, i) => i === index ? { ...s, sanitizing: true, error: null } : s));
+    try {
+      if (!window.CleanSharePro || typeof window.CleanSharePro.applyRedactions !== 'function') {
+        throw new Error('Processing engine not ready');
+      }
+      const s = fileStates[index];
+      const actions = (s.detections || []).filter(d => s.selected[d.id]).map(d => ({ detectionId: d.id, style: (s.actions[d.id]?.style) || 'BOX' }));
+      const res = await window.CleanSharePro.applyRedactions(s.file, actions, { detections: s.detections });
+      if (!res || !res.success) throw new Error(res?.error || 'Sanitization failed');
+      const mime = s.file.type === 'application/pdf' ? 'application/pdf' : (s.file.type && s.file.type.startsWith('image/') ? s.file.type : 'application/octet-stream');
+      const blob = new Blob([res.data], { type: mime });
+      const url = URL.createObjectURL(blob);
+      setFileStates(prev => prev.map((fs, i) => i === index ? { ...fs, outputUri: url, previewUri: url, sanitizing: false, sanitized: true } : fs));
+    } catch (err) {
+      setFileStates(prev => prev.map((s, i) => i === index ? { ...s, sanitizing: false, error: err.message } : s));
+    }
+  }, [fileStates]);
+
+  // Concurrency helper
+  const runWithConcurrency = React.useCallback(async (indexes, worker, limit = 3) => {
+    const queue = [...indexes];
+    const runners = new Array(Math.min(limit, queue.length)).fill(0).map(async () => {
+      while (queue.length) {
+        const idx = queue.shift();
+        try { await worker(idx); } catch {}
+      }
+    });
+    await Promise.all(runners);
+  }, []);
+
+  // Bulk actions
+  const analyzeAll = React.useCallback(async () => {
+    const toAnalyze = fileStates.map((s, i) => ({ s, i })).filter(x => !x.s.analyzed && !x.s.analyzing);
+    await runWithConcurrency(toAnalyze.map(x => x.i), analyzeOne, 3);
+  }, [fileStates, analyzeOne, runWithConcurrency]);
+
+  const sanitizeAll = React.useCallback(async () => {
+    const toSanitize = fileStates.map((s, i) => ({ s, i })).filter(x => x.s.analyzed && !x.s.sanitized && !x.s.sanitizing);
+    await runWithConcurrency(toSanitize.map(x => x.i), sanitizeOne, 3);
+  }, [fileStates, sanitizeOne, runWithConcurrency]);
+
+  const downloadAll = React.useCallback(() => {
+    fileStates.forEach((s, i) => {
+      if (s.outputUri) {
+        setTimeout(() => {
+          const a = document.createElement('a');
+          a.href = s.outputUri;
+          a.download = `sanitized_${s.file.name}`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }, i * 100);
+      }
+    });
+  }, [fileStates]);
 
   // Sanitization handler
   const handleSanitize = React.useCallback(async () => {
@@ -1585,7 +1693,8 @@ const MobileApp = () => {
       // Ctrl+O - File upload
       if (event.ctrlKey && event.key === 'o') {
         event.preventDefault();
-        document.getElementById('file-input')?.click();
+        const multi = document.getElementById('multi-file-input');
+        if (multi) multi.click(); else document.getElementById('file-input')?.click();
       }
 
       // Ctrl+Z - Undo
@@ -1671,6 +1780,14 @@ const MobileApp = () => {
       }
     },
       React.createElement('button', {
+        onClick: () => document.getElementById('multi-file-input')?.click(),
+        style: { padding: '8px 16px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', fontSize: '14px', cursor: 'pointer', fontWeight: '600' }
+      }, '➕ Add Files'),
+      React.createElement('input', { id: 'multi-file-input', type: 'file', multiple: true, accept: 'image/*,application/pdf', style: { display: 'none' }, onChange: handleAddFiles }),
+      React.createElement('button', { onClick: analyzeAll, style: { padding: '8px 16px', background: '#0ea5e9', color: 'white', border: 'none', borderRadius: '6px', fontSize: '14px', cursor: 'pointer', fontWeight: '600' } }, '🔍 Analyze All'),
+      React.createElement('button', { onClick: sanitizeAll, style: { padding: '8px 16px', background: '#10b981', color: 'white', border: 'none', borderRadius: '6px', fontSize: '14px', cursor: 'pointer', fontWeight: '600' } }, '🧼 Sanitize All'),
+      React.createElement('button', { onClick: downloadAll, style: { padding: '8px 16px', background: '#6b7280', color: 'white', border: 'none', borderRadius: '6px', fontSize: '14px', cursor: 'pointer', fontWeight: '600' } }, '⬇️ Download All'),
+      React.createElement('button', {
         onClick: () => setShowPresets(true),
         style: {
           padding: '8px 16px',
@@ -1724,8 +1841,56 @@ const MobileApp = () => {
       }, '⌨️ Help')
     ),
 
+    // Multi-file layout
+    fileStates.length > 0 ? React.createElement('div', { style: { padding: '20px' } },
+      React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '260px 1fr', gap: '16px' } },
+        // File list
+        React.createElement('div', { style: { background: 'white', borderRadius: '12px', padding: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', maxHeight: '70vh', overflowY: 'auto' } },
+          fileStates.map((s, i) => React.createElement('div', {
+            key: i, onClick: () => setCurrentFileIndex(i),
+            style: { padding: '10px', border: i === currentFileIndex ? '2px solid #2563eb' : '1px solid #e5e7eb', borderRadius: '8px', marginBottom: '8px', cursor: 'pointer', background: i === currentFileIndex ? '#eff6ff' : 'white' }
+          },
+            React.createElement('div', { style: { fontWeight: 600, fontSize: '14px', color: '#1f2937' } }, s.file.name),
+            React.createElement('div', { style: { fontSize: '12px', color: '#6b7280' } }, s.error ? `❌ ${s.error}` : s.sanitized ? '✅ Sanitized' : s.analyzed ? `🔍 ${s.detections.length} detections` : (s.analyzing ? '🔄 Analyzing…' : '⏳ Pending'))
+          ))
+        ),
+        // Detail pane
+        (() => {
+          const fs = fileStates[currentFileIndex] || {};
+          return React.createElement('div', { style: { background: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' } },
+            // Actions
+            React.createElement('div', { style: { display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' } },
+              React.createElement('button', { onClick: () => analyzeOne(currentFileIndex), disabled: fs.analyzing, style: { padding: '8px 12px', background: '#0ea5e9', color: 'white', border: 'none', borderRadius: '6px', cursor: fs.analyzing ? 'not-allowed' : 'pointer' } }, fs.analyzing ? 'Analyzing…' : 'Analyze'),
+              React.createElement('button', { onClick: () => sanitizeOne(currentFileIndex), disabled: !fs.analyzed || fs.sanitizing, style: { padding: '8px 12px', background: '#10b981', color: 'white', border: 'none', borderRadius: '6px', cursor: (!fs.analyzed || fs.sanitizing) ? 'not-allowed' : 'pointer' } }, fs.sanitizing ? 'Sanitizing…' : 'Sanitize'),
+              React.createElement('button', { onClick: () => { if (fs.outputUri) { const a = document.createElement('a'); a.href = fs.outputUri; a.download = `sanitized_${fs.file.name}`; document.body.appendChild(a); a.click(); document.body.removeChild(a); } }, disabled: !fs.outputUri, style: { padding: '8px 12px', background: '#6b7280', color: 'white', border: 'none', borderRadius: '6px', cursor: fs.outputUri ? 'pointer' : 'not-allowed' } }, 'Download')
+            ),
+            // Detections
+            fs.analyzed ? React.createElement('div', { style: { marginBottom: '12px' } },
+              React.createElement('h3', { style: { margin: '0 0 8px 0', fontSize: '16px', color: '#1f2937' } }, `Detections (${fs.detections.length})`),
+              fs.detections.length === 0 ? React.createElement('div', { style: { color: '#059669' } }, 'No sensitive information detected') :
+                React.createElement('div', { style: { display: 'grid', gap: '6px' } },
+                  fs.detections.map(d => React.createElement('label', { key: d.id, style: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' } },
+                    React.createElement('input', { type: 'checkbox', checked: !!fs.selected[d.id], onChange: (e) => setFileStates(prev => prev.map((s, ii) => ii === currentFileIndex ? { ...s, selected: { ...s.selected, [d.id]: e.target.checked } } : s)) }),
+                    React.createElement('span', { style: { minWidth: '80px', color: '#374151' } }, d.kind),
+                    React.createElement('span', { style: { color: '#6b7280' } }, d.preview || d.text || ''),
+                    React.createElement('select', { value: (fs.actions[d.id]?.style) || 'BOX', onChange: (e) => setFileStates(prev => prev.map((s, ii) => ii === currentFileIndex ? { ...s, actions: { ...s.actions, [d.id]: { style: e.target.value } } } : s)) },
+                      ['BOX', 'BLUR', 'PIXELATE', 'LABEL', 'MASK_LAST4'].map(opt => React.createElement('option', { key: opt, value: opt }, opt))
+                    )
+                  ))
+                )
+            ) : React.createElement('div', { style: { color: '#6b7280', marginBottom: '12px' } }, 'Analyze to view detections'),
+            // Preview
+            fs.previewUri ? React.createElement('div', { style: { marginTop: '8px' } },
+              fs.file && fs.file.type === 'application/pdf' ? React.createElement('embed', { src: fs.previewUri, type: 'application/pdf', style: { width: '100%', height: '400px', border: '1px solid #e5e7eb', borderRadius: '8px' } })
+                : React.createElement('img', { src: fs.previewUri, alt: 'Preview', style: { maxWidth: '100%', maxHeight: '400px', border: '1px solid #e5e7eb', borderRadius: '8px' } })
+            ) : null
+          );
+        })()
+      )
+    ) : null,
+
     // Main Content - File Processing Interface
-    React.createElement('div', {
+    (fileStates.length === 0) && React.createElement('div', {
       style: { padding: '20px', maxWidth: '800px', margin: '0 auto' }
     },
       
