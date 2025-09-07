@@ -1580,8 +1580,9 @@ window.MobileCleanSharePro = {
   MobileCleanSharePro
 };
 
-// Auto-initialize when script loads
-document.addEventListener('DOMContentLoaded', () => {
-  // Wait a bit for React to be loaded
-  setTimeout(initializeMobileApp, 1000);
-});
+// Auto-initialize when script loads - DISABLED TO PREVENT OLD UI OVERRIDE
+// document.addEventListener('DOMContentLoaded', () => {
+//   // Wait a bit for React to be loaded
+//   setTimeout(initializeMobileApp, 1000);
+// });
+console.log('OLD mobile-app.js auto-initialization DISABLED');

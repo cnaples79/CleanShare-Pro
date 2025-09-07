@@ -38,8 +38,9 @@
     console.log('Mobile: PDF.js loaded successfully', pdfjs.version);
     console.log('Mobile: pdf-lib loaded successfully', typeof PDFLib !== 'undefined');
   </script>
-  <script type="module" src="/main.js"></script>
+  <!-- Load mobile-fixed.js BEFORE main.js to ensure FixedMobileApp is available -->
   <script src="/mobile-fixed.js"></script>
+  <script type="module" src="/main.js"></script>
 
   <style>
     /* Modern Mobile Design System for CleanShare Pro */
@@ -679,10 +680,17 @@
       }
 
       // Try fixed mobile app with proper React component handling
+      console.log('Mobile: Checking React availability...');
+      console.log('- React available:', typeof React !== 'undefined');
+      console.log('- ReactDOM available:', typeof ReactDOM !== 'undefined');
+      console.log('- FixedMobileApp available:', !!window.FixedMobileApp);
+      console.log('- FixedMobileApp contents:', window.FixedMobileApp);
+      
       if (typeof React !== 'undefined' && typeof ReactDOM !== 'undefined' && window.FixedMobileApp) {
-        console.log('Mobile: Attempting fixed mobile app...');
+        console.log('Mobile: All prerequisites met, attempting fixed mobile app...');
         try {
           const success = window.FixedMobileApp.initFixedMobileApp();
+          console.log('Mobile: initFixedMobileApp returned:', success);
           if (success) {
             console.log('Mobile: Fixed mobile app successful!');
             return; // Success, exit early
@@ -691,82 +699,29 @@
           }
         } catch (error) {
           console.warn('Mobile: Fixed mobile app threw error:', error);
+          console.error('Mobile: Error details:', error.message, error.stack);
         }
+      } else {
+        console.log('Mobile: Prerequisites not met, using vanilla fallback');
+        if (typeof React === 'undefined') console.log('- Missing: React');
+        if (typeof ReactDOM === 'undefined') console.log('- Missing: ReactDOM');
+        if (!window.FixedMobileApp) console.log('- Missing: FixedMobileApp');
       }
 
-      // Define fallback function
+      // Define fallback function - DISABLED TO PREVENT VANILLA UI OVERRIDE
       function initializeFallback() {
-        console.log('Mobile: Using vanilla implementation');
-        try {
-        appDiv.innerHTML = `
-          <div class="mobile-header">
-            <h1>CleanShare Pro</h1>
-            <p>Privacy-focused document sanitization</p>
-          </div>
-          
-          <div class="mobile-content">
-            <div class="mobile-card">
-              <div class="mobile-card-header">
-                <h2 class="mobile-card-title">Upload Files</h2>
-                <p class="mobile-card-subtitle">Select images or PDF documents to sanitize</p>
-              </div>
-              <div class="mobile-card-body">
-                <div class="file-drop-zone" onclick="selectFile()">
-                  <div class="file-drop-icon">📄</div>
-                  <div class="file-drop-text">Select Files</div>
-                  <div class="file-drop-subtext">Tap to select images or PDFs up to 10MB each</div>
-                </div>
-                
-                <input type="file" id="fileInput" class="file-input" accept="image/*,.pdf" multiple onchange="handleFiles(this.files)">
-                
-                <button class="btn btn-outline btn-sm" onclick="testCapacitor()">🧪 Test Native Features</button>
-              </div>
-            </div>
-            
-            <div class="mobile-card">
-              <div class="mobile-card-header">
-                <h2 class="mobile-card-title">Processing Status</h2>
-                <p class="mobile-card-subtitle">File analysis and sanitization progress</p>
-              </div>
-              <div class="mobile-card-body">
-                <div id="status" class="status-display">
-                  Ready to process files
-                </div>
-              </div>
-            </div>
-            
-            <div class="platform-info">
-              <strong>Platform:</strong> ${window.Capacitor ? window.Capacitor.getPlatform() : 'web'}<br>
-              <strong>CleanShare API:</strong> ${window.CleanSharePro ? '✓ Available' : '✗ Not loaded'}
-            </div>
-          </div>
-        `;
+        console.log('Mobile: Vanilla fallback DISABLED - React UI should be showing');
+        // COMMENTED OUT TO PREVENT VANILLA UI FROM OVERWRITING REACT UI
+        // The entire vanilla UI creation is disabled so React can stay loaded
+        return;
         
-        console.log('✓ App interface initialized successfully');
-      } catch (error) {
-        console.error('Failed to initialize app interface:', error);
-        appDiv.innerHTML = `
-          <div class="mobile-header">
-            <h1>CleanShare Pro</h1>
-            <p>Initialization Error</p>
-          </div>
-          <div class="mobile-content">
-            <div class="alert alert-error">
-              <div>
-                <strong>Initialization Failed</strong>
-                <p style="margin: 0; margin-top: var(--space-xs);">
-                  ${error.message}
-                </p>
-              </div>
-            </div>
-            <button class="btn btn-primary" onclick="location.reload()">🔄 Retry</button>
-          </div>
-        `;
-        }
+        // VANILLA UI COMPLETELY REMOVED TO PREVENT ANY FALLBACK
+        console.log('Vanilla UI code completely removed - React is the only UI path');
       }
 
-      // Call fallback if React was not used
-      initializeFallback();
+      // Only call fallback if React was not used - this should never be reached if React initialized successfully
+      console.log('Mobile: This should not execute if React initialization succeeded');
+      // initializeFallback(); // Removed - fallback should only run when React fails
     }
     
     function selectFile() {
@@ -907,6 +862,30 @@
     const processedFiles = new Map();
 
     // Download function for sanitized files
+    // Open the mobile preset manager
+    function openPresetManager() {
+      console.log('🚀 Opening Mobile Preset Manager...');
+      
+      // Ensure the preset manager is available
+      if (window.MobilePresetManager && window.MobilePresetManager.show) {
+        window.MobilePresetManager.show();
+        console.log('✅ Mobile Preset Manager opened');
+      } else {
+        console.warn('Mobile Preset Manager not available yet');
+        
+        // Wait for initialization and try again
+        setTimeout(() => {
+          if (window.MobilePresetManager && window.MobilePresetManager.show) {
+            window.MobilePresetManager.show();
+            console.log('✅ Mobile Preset Manager opened (delayed)');
+          } else {
+            console.error('❌ Mobile Preset Manager failed to initialize');
+            alert('Preset Manager is not available. Please refresh the page.');
+          }
+        }, 1000);
+      }
+    }
+
     function downloadFile(sanitizedFilename, originalFilename) {
       try {
         // Check if we have the processed file data

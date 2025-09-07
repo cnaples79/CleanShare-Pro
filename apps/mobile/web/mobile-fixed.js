@@ -1,8 +1,183 @@
 // Fixed mobile app - properly handle React components and hooks
-console.log('=== FIXED MOBILE APP WITH FULL FUNCTIONALITY ===');
+console.log('=== 🚀 FIXED MOBILE APP WITH PRESET MANAGER - V2 ===');
 
 let isAppInitialized = false;
 
+// ===== MOBILE PRESET MANAGER IMPLEMENTATION =====
+// Complete Phase 2.4 feature parity with web version
+
+const DETECTION_KINDS = [
+  'FACE', 'EMAIL', 'PHONE', 'PAN', 'IBAN', 'SSN', 'PASSPORT', 
+  'JWT', 'API_KEY', 'BARCODE', 'NAME', 'ADDRESS', 'OTHER'
+];
+
+const REDACTION_STYLES = [
+  'BOX', 'BLUR', 'PIXELATE', 'LABEL', 'MASK_LAST4', 'PATTERN', 
+  'GRADIENT', 'SOLID_COLOR', 'VECTOR_OVERLAY', 'REMOVE_METADATA'
+];
+
+const DOMAINS = ['Healthcare', 'Finance', 'Legal', 'Government', 'Education', 'Technology', 'General'];
+
+// Built-in presets for mobile (simulating core-detect functionality)
+const MOBILE_BUILTIN_PRESETS = [
+  {
+    id: 'all',
+    name: 'All Detectors',
+    description: 'Detect all types of sensitive information',
+    domain: 'General',
+    enabledKinds: DETECTION_KINDS,
+    styleMap: {},
+    customRegex: [],
+    customPatterns: [],
+    defaultRedactionConfig: { color: '#000000', opacity: 0.9 },
+    confidenceThreshold: 0.6,
+    isUserCreated: false
+  },
+  {
+    id: 'healthcare',
+    name: 'Healthcare HIPAA',
+    description: 'HIPAA-compliant detection for healthcare documents',
+    domain: 'Healthcare',
+    enabledKinds: ['EMAIL', 'PHONE', 'SSN', 'NAME', 'ADDRESS'],
+    styleMap: { 'SSN': 'MASK_LAST4', 'EMAIL': 'BLUR', 'PHONE': 'BOX' },
+    customRegex: [],
+    customPatterns: [],
+    defaultRedactionConfig: { color: '#dc2626', opacity: 0.8 },
+    confidenceThreshold: 0.8,
+    isUserCreated: false
+  },
+  {
+    id: 'finance',
+    name: 'Financial PCI-DSS',
+    description: 'PCI-DSS compliant for financial documents',
+    domain: 'Finance',
+    enabledKinds: ['PAN', 'IBAN', 'SSN', 'EMAIL', 'PHONE'],
+    styleMap: { 'PAN': 'MASK_LAST4', 'IBAN': 'BOX', 'SSN': 'SOLID_COLOR' },
+    customRegex: [],
+    customPatterns: [],
+    defaultRedactionConfig: { color: '#059669', opacity: 0.9 },
+    confidenceThreshold: 0.9,
+    isUserCreated: false
+  },
+  {
+    id: 'legal',
+    name: 'Legal Document',
+    description: 'Legal document processing with attorney-client privilege protection',
+    domain: 'Legal',
+    enabledKinds: ['EMAIL', 'PHONE', 'ADDRESS', 'NAME', 'SSN'],
+    styleMap: { 'EMAIL': 'LABEL', 'PHONE': 'LABEL', 'NAME': 'BLUR' },
+    customRegex: [],
+    customPatterns: [],
+    defaultRedactionConfig: { color: '#7c3aed', opacity: 0.85 },
+    confidenceThreshold: 0.7,
+    isUserCreated: false
+  }
+];
+
+// Mobile preset storage (using localStorage)
+function getMobilePresets() {
+  const userPresets = JSON.parse(localStorage.getItem('cleanshare_user_presets') || '[]');
+  return [...MOBILE_BUILTIN_PRESETS, ...userPresets];
+}
+
+function saveMobilePreset(preset) {
+  if (!preset.isUserCreated) {
+    throw new Error('Cannot modify built-in presets');
+  }
+  
+  const userPresets = JSON.parse(localStorage.getItem('cleanshare_user_presets') || '[]');
+  const existingIndex = userPresets.findIndex(p => p.id === preset.id);
+  
+  if (existingIndex >= 0) {
+    userPresets[existingIndex] = preset;
+  } else {
+    preset.id = preset.id || 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    preset.isUserCreated = true;
+    userPresets.push(preset);
+  }
+  
+  localStorage.setItem('cleanshare_user_presets', JSON.stringify(userPresets));
+}
+
+function deleteMobilePreset(presetId) {
+  if (MOBILE_BUILTIN_PRESETS.find(p => p.id === presetId)) {
+    return false; // Cannot delete built-in presets
+  }
+  
+  const userPresets = JSON.parse(localStorage.getItem('cleanshare_user_presets') || '[]');
+  const filteredPresets = userPresets.filter(p => p.id !== presetId);
+  localStorage.setItem('cleanshare_user_presets', JSON.stringify(filteredPresets));
+  return true;
+}
+
+function duplicateMobilePreset(presetId) {
+  const presets = getMobilePresets();
+  const original = presets.find(p => p.id === presetId);
+  if (!original) return null;
+  
+  const duplicate = {
+    ...original,
+    id: 'copy_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+    name: original.name + ' (Copy)',
+    isUserCreated: true
+  };
+  
+  saveMobilePreset(duplicate);
+  return duplicate;
+}
+
+
+// Mobile Toast Notification System (removed to keep UI purely React)
+/* function showMobileToast(message, duration = 3000) {
+  // Remove existing toast
+  const existingToast = document.querySelector('.mobile-toast');
+  if (existingToast) {
+    existingToast.remove();
+  }
+
+  // Create new toast
+  const toast = document.createElement('div');
+  toast.className = 'mobile-toast';
+  toast.textContent = message;
+  toast.style.cssText = `
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-dark);
+    color: var(--text-inverse);
+    padding: var(--space-md) var(--space-lg);
+    border-radius: var(--radius-full);
+    box-shadow: var(--shadow-lg);
+    z-index: 20000;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    white-space: nowrap;
+    max-width: 90vw;
+    text-align: center;
+    animation: slideInFromTop 0.3s ease-out;
+  `;
+
+  document.body.appendChild(toast);
+
+  // Auto remove
+  setTimeout(() => {
+    if (toast.parentNode) {
+      toast.style.animation = 'slideOutToTop 0.3s ease-in';
+      setTimeout(() => {
+        if (toast.parentNode) {
+          toast.remove();
+        }
+      }, 300);
+    }
+  }, duration);
+} */
+
+// Add toast animations to the page
+// (toast animations removed)
+
+
+/*
 // Real detection logic from core-detect package
 function isLuhnValid(value) {
   let sum = 0;
@@ -426,6 +601,7 @@ async function redactImageFile(file, detections, options = {}) {
   });
 }
 
+*/
 // Phase 2.4 Component 1: Preset Management (using working patterns)
 const PresetManagerModal = ({ isOpen, onClose }) => {
   console.log('PresetManagerModal rendering...', { isOpen });
@@ -1273,19 +1449,26 @@ const MobileApp = () => {
     setAnalysisResult(null);
     
     try {
-      console.log('Starting file analysis...');
-      const result = await analyzeDocument(file);
+      console.log('Starting file analysis via CleanSharePro...');
+      if (!window.CleanSharePro || typeof window.CleanSharePro.processFile !== 'function') {
+        throw new Error('Processing engine not ready');
+      }
+      const res = await window.CleanSharePro.processFile(file);
+      if (!res || !res.success) {
+        throw new Error(res?.error || 'Analysis failed');
+      }
+      const result = { detections: res.detections || [], pages: res.pages || 1 };
       console.log('Analysis completed:', result);
-      
+
       setAnalysisResult(result);
-      
+
       // Initialize detection filter (all enabled by default)
       const filter = {};
       result.detections.forEach(detection => {
         filter[detection.id] = true;
       });
       setDetectionFilter(filter);
-      
+
     } catch (error) {
       console.error('Analysis failed:', error);
       alert(`Analysis failed: ${error.message}`);
@@ -1312,14 +1495,30 @@ const MobileApp = () => {
     setPreviewUri(null);
 
     try {
-      const sanitizedBlob = await applyRedactions(selectedFile, enabledDetections);
-      setSanitizedBlob(sanitizedBlob);
-      
+      if (!window.CleanSharePro || typeof window.CleanSharePro.applyRedactions !== 'function') {
+        throw new Error('Processing engine not ready');
+      }
+      // Build simple BOX actions for enabled detections
+      const actions = enabledDetections.map(d => ({ detectionId: d.id, style: 'BOX' }));
+      const res = await window.CleanSharePro.applyRedactions(
+        selectedFile,
+        actions,
+        { detections: analysisResult.detections }
+      );
+      if (!res || !res.success) {
+        throw new Error(res?.error || 'Sanitization failed');
+      }
+      const mime = selectedFile.type === 'application/pdf'
+        ? 'application/pdf'
+        : (selectedFile.type && selectedFile.type.startsWith('image/') ? selectedFile.type : 'application/octet-stream');
+      const blob = new Blob([res.data], { type: mime });
+      setSanitizedBlob(blob);
+
       // Create preview URL
-      const previewUrl = URL.createObjectURL(sanitizedBlob);
+      const previewUrl = URL.createObjectURL(blob);
       setPreviewUri(previewUrl);
       setCurrentStep('preview');
-      
+
       console.log('Sanitization completed successfully');
     } catch (error) {
       console.error('Sanitization failed:', error);
@@ -1965,14 +2164,15 @@ function initFixedMobileApp() {
     console.error('Error message:', error.message);
     console.error('Error stack:', error.stack);
     
-    // Show error in UI
-    container.innerHTML = `
-      <div style="padding: 20px; background: #fee; color: #c00; font-family: monospace;">
-        <h2>Initialization Error</h2>
-        <p><strong>Error:</strong> ${error.message}</p>
-        <pre style="background: #f5f5f5; padding: 10px; overflow: auto;">${error.stack || 'No stack trace'}</pre>
-      </div>
-    `;
+    // Show error in UI - COMMENTED OUT TO PREVENT VANILLA FALLBACK
+    // container.innerHTML = `
+    //   <div style="padding: 20px; background: #fee; color: #c00; font-family: monospace;">
+    //     <h2>Initialization Error</h2>
+    //     <p><strong>Error:</strong> ${error.message}</p>
+    //     <pre style="background: #f5f5f5; padding: 10px; overflow: auto;">${error.stack || 'No stack trace'}</pre>
+    //   </div>
+    // `;
+    console.error('❌ REACT ERROR FALLBACK DISABLED - Check console for errors');
     
     return false;
   }

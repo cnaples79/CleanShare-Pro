@@ -583,6 +583,13 @@ window.CleanSharePro = {
 initializeModules().then(() => {
   console.log('CleanShare Pro mobile app modules initialized (100% WebView architecture)');
   
+  // Initialize mobile preset manager (no React needed)
+  if (window.initMobilePresetManager) {
+    setTimeout(() => {
+      window.initMobilePresetManager();
+    }, 500);
+  }
+  
   // Dispatch ready event
   window.dispatchEvent(new CustomEvent('cleanshare-ready', {
     detail: { modules: { coreDetect, wasmWorkers } }
