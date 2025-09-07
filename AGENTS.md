@@ -14,6 +14,7 @@
 - `apps/cli/bin/index.js`: CLI entry (prints “not implemented”).
 - `apps/mobile/capacitor.config.ts`, `android/`, `ios/`: Capacitor config and native shells.
 - `apps/mobile/web/`: Mobile WebView entry (`index.html`, `main.js`, styling, Capacitor stub for dev).
+- `apps/mobile/web/mobile-fixed.js`: Mobile Preset Manager, History, and action bar for Phase 2.4 parity. Load before `main.js` in `index.html`.
 - `packages/ui/pages/index.tsx`: Main UI flow (upload → detect → redact/export). Supporting files: `_app.tsx`, `_error.tsx`, `404.tsx`, `styles/globals.css`, `next.config.js`.
 - `packages/core-detect/src/types.ts`: Core types. `detectors/index.ts`: token heuristics (Luhn, IBAN, SSN, JWT, AWS). `pipeline/analyze.ts`: OCR (Tesseract) + PDF render (pdfjs) + barcode (jsQR). `pipeline/apply.ts`: draw redactions (canvas/pdf-lib). `presets.ts`: built-in presets. `history.ts`: processing history and analytics.
 - `packages/wasm/src/index.ts`: Comlink worker manager. `workers/ocr-worker.ts`: Tesseract wrapper. `workers/pdf-worker.ts`: pdf-lib helpers (currently partial stubs).
@@ -39,6 +40,7 @@
 - Current readiness: Web UI runs; Mobile WebView runs with CDN-loaded `tesseract.js`, `pdfjs-dist`, and `pdf-lib`. Native plugin code is disabled; heavy OCR/PDF work largely runs on the main thread.
 - Goal: Keep 100% pure WebView + Capacitor for iOS/Android store builds (no custom native plugins). Replace CDN in production with locally bundled assets.
 - PDF.js worker: ensure a worker is bundled and referenced via `pdfjsLib.GlobalWorkerOptions.workerSrc` (Next.js: ship under `packages/ui/public/`; Mobile: ship alongside `apps/mobile/web/`).
+- Mobile fixed shell: `apps/mobile/web/index.html` now loads React 18 UMD and `mobile-fixed.js` before `main.js` to enable Preset Manager, History UI, and the action bar. Keep CDNs for dev; replace with locally bundled assets for production/offline.
 - Architecture improvements to pursue:
   - Workers by default: route Tesseract/pdf.js via `packages/wasm` Comlink workers to avoid UI blocking.
   - Platform adapters: inject OCR/Barcode/PDF via web workers (both web + mobile) instead of using DOM APIs in core.
@@ -46,11 +48,13 @@
   - Explicit APIs: remove shared state in redaction; pass detections directly (core has helper for this already).
   - Packaging: eliminate runtime CDNs for store builds; lazy‑load heavy deps; static export for UI.
 - Build/release flow:
-  - Web: `pnpm --filter @cleanshare/ui build && pnpm --filter @cleenshare/ui exec next export -o out` (deploy `packages/ui/out/`).
+  - Web: `pnpm --filter @cleanshare/ui build && pnpm --filter @cleanshare/ui exec next export -o out` (deploy `packages/ui/out/`).
   - Mobile: `pnpm --filter @cleanshare/ui exec next export -o ../../apps/mobile/web && (cd apps/mobile && npx cap sync)` then build in Xcode/Android Studio.
-- CI suggestions: add a simple workflow to run `pnpm -r build`, type-check packages, and publish web artifacts. Cache pnpm store. Optionally attach mobile web bundle as artifact. Note: `.github/workflows` is not present yet.
+  - CI suggestions: add a simple workflow to run `pnpm -r build`, type-check packages, and publish web artifacts. Cache pnpm store. Optionally attach mobile web bundle as artifact. Note: `.github/workflows` is not present yet.
+  - Note (mobile export): ensure `apps/mobile/web/mobile-fixed.js` remains present after export; if your export step wipes the folder, re-copy this file before packaging.
 
 ## Phase 2.4 Fix & Optimize Plan (Pure WebView)
+- Status: baseline parity working on web and mobile. Mobile Preset Manager + History implemented in `apps/mobile/web/mobile-fixed.js`; detection and PDF/image redaction use CDN `tesseract.js`, `pdfjs-dist`, and `pdf-lib`. Next: workerize heavy paths and replace CDNs with bundled assets.
 - Align detection across web/mobile: remove duplicate mobile-only token code by reusing `@cleanshare/core-detect` detectors in mobile bundle; ensure the same presets and thresholds apply on both.
 - Workerize heavy paths: swap `tesseract.js` and PDF page rendering to `packages/wasm` workers in both web and mobile to keep the main thread responsive.
 - PDF correctness & safety: add a rasterized rebuild path for PDFs in workers (baseline) and keep current simple vector overlays only when safe; verify no live text remains.
@@ -67,6 +71,7 @@
 ## Commit & Pull Request Guidelines
 - Current history is minimal; adopt Conventional Commits: `feat:`, `fix:`, `docs:`, `refactor:`, etc., with scopes like `ui:`, `core-detect:`, `wasm:`, `mobile:`.
 - PRs: clear description, linked issues, reproduction steps, before/after screenshots for UI, list affected packages, and update docs when behavior changes.
+- Do not commit build artifacts: exclude `packages/ui/.next/`, `packages/ui/out/`, and generated mobile export contents from commits. Prefer CI artifacts and ensure `.gitignore` rules cover these outputs.
 
 ## Security & Configuration Tips
 - Do not commit secrets or real PII; use files under `samples/` or `test-samples/` for demos.
